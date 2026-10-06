@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getKey, setKey, getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
+import LatticeLoader from './reactbits/LatticeLoader.jsx'
 
 function DeepSeekIcon() {
   // стилизованный «кит» DeepSeek
@@ -107,7 +108,11 @@ export default function CodeBlock({ name, lang, code }) {
           {err && <div className="ds-err">{err}</div>}
           <div className="ds-row">
             <button className="ds-apply" onClick={apply} disabled={busy}>
-              {busy ? 'DeepSeek думает…' : 'Применить'}
+              {busy ? (
+                <LatticeLoader label="DeepSeek" status="working" color="#fff" glow glowColor="#bcd0ff" />
+              ) : (
+                'Применить'
+              )}
             </button>
             <button className="ds-cancel" onClick={() => setPanel(false)}>Отмена</button>
           </div>

@@ -442,3 +442,44 @@ body {
   .hero { padding: 48px 0 20px; }
   .tab-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+/* ---------- antigravity background canvas ---------- */
+.bg canvas { display: block; width: 100% !important; height: 100% !important; }
+
+/* ---------- layout: branched menu + content ---------- */
+.layout {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+.menu-pane {
+  flex: none;
+  width: 300px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 6px 4px 24px;
+}
+.content-pane { flex: 1 1 auto; min-width: 0; }
+
+.branched-menu { width: 100%; }
+.branched-menu__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 215px;
+}
+
+.answer-head.static { cursor: default; }
+
+@media (max-width: 760px) {
+  .layout { flex-direction: column; }
+  .menu-pane {
+    position: static;
+    width: 100%;
+    max-height: 340px;
+    overflow: auto;
+  }
+  .branched-menu__label { max-width: 72vw; }
+}
