@@ -6,8 +6,17 @@ const KEY_STORAGE = 'deepseek_api_key'
 const MODEL_STORAGE = 'deepseek_model'
 export const DEFAULT_MODEL = 'deepseek-chat' // 'deepseek-reasoner' — модель с рассуждением
 
+// Ключ из переменной окружения сборки (Render → Environment → VITE_DEEPSEEK_API_KEY).
+// ВНИМАНИЕ: на статическом сайте такой ключ попадает в публичный бандл и виден всем.
+const ENV_KEY =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_DEEPSEEK_API_KEY) || ''
+
+export function hasEnvKey() {
+  return Boolean(ENV_KEY)
+}
+
 export function getKey() {
-  try { return localStorage.getItem(KEY_STORAGE) || '' } catch { return '' }
+  try { return localStorage.getItem(KEY_STORAGE) || ENV_KEY } catch { return ENV_KEY }
 }
 export function setKey(k) {
   try { localStorage.setItem(KEY_STORAGE, k) } catch { /* приватный режим */ }
