@@ -1,5 +1,6 @@
 // Все дисциплины студента (вкладки). У заполненных — status: 'ready' и массив answers.
 // У остальных — status: 'soon' (заглушка «в разработке»), заполнишь позже тем же форматом.
+import { oopAnswers } from './oop.js'
 
 export const disciplines = [
   { id: 'xml', name: 'XML технологии', teacher: 'Край Дисана', status: 'ready', answers: xmlAnswers() },
@@ -9,7 +10,7 @@ export const disciplines = [
   { id: 'discrete', name: 'Дискретная математика', teacher: 'Киржинов Р. А.', status: 'soon' },
   { id: 'history', name: 'История', teacher: '', status: 'soon' },
   { id: 'logic', name: 'Мат. логика и теория алгоритмов', teacher: 'Киржинов Р. А.', status: 'soon' },
-  { id: 'oop', name: 'ООП на C#', teacher: 'Ремизов Г. А.', status: 'soon' },
+  { id: 'oop', name: 'ООП на C#', teacher: 'Ремизов Г. А.', status: 'ready', answers: oopAnswers },
   { id: 'htmlcss', name: 'Основы HTML/CSS', teacher: 'Кошеева А. М.', status: 'soon' },
   { id: 'linux', name: 'Основы Linux', teacher: 'Таов А. А.', status: 'soon' },
   { id: 'db', name: 'Основы проектирования БД', teacher: 'Край Дисана', status: 'soon' },
