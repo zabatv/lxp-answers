@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getKey, setKey, getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
+import { getKey, getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
 import LatticeLoader from './reactbits/LatticeLoader.jsx'
 
 function DeepSeekIcon() {
@@ -21,7 +21,6 @@ export default function CodeBlock({ name, lang, code }) {
   const [copied, setCopied] = useState(false)
   const [panel, setPanel] = useState(false)
   const [prompt, setPrompt] = useState('')
-  const [keyInput, setKeyInput] = useState(getKey())
   const [model, setModelState] = useState(getModel())
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -39,10 +38,9 @@ export default function CodeBlock({ name, lang, code }) {
 
   const apply = async () => {
     setErr('')
-    const k = keyInput.trim()
-    if (!k) { setErr('Введите API-ключ DeepSeek'); return }
+    const k = getKey()
+    if (!k) { setErr('Ключ DeepSeek не настроен на сайте'); return }
     if (!prompt.trim()) { setErr('Опишите, что изменить'); return }
-    setKey(k)
     setModel(model)
     setBusy(true)
     try {
@@ -85,14 +83,7 @@ export default function CodeBlock({ name, lang, code }) {
       {panel && (
         <div className="ds-panel">
           <div className="ds-field">
-            <input
-              type="password"
-              className="ds-input"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="API-ключ DeepSeek (sk-...) — хранится только в этом браузере"
-              autoComplete="off"
-            />
+            <span className="ds-hint">Модель DeepSeek</span>
             <select className="ds-select" value={model} onChange={(e) => setModelState(e.target.value)}>
               <option value={DEFAULT_MODEL}>deepseek-chat</option>
               <option value="deepseek-reasoner">deepseek-reasoner</option>
