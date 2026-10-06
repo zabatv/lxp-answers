@@ -61,7 +61,7 @@ export default function CodeBlock({ name, lang, code }) {
       } else {
         clearInterval(stepTimer.current)
       }
-    }, 1200)
+    }, Math.floor(2000 / THINK_STEPS.length))
     try {
       const out = await refineCode({ code: current, lang, instruction: prompt, model })
       if (out) setCurrent(out)
