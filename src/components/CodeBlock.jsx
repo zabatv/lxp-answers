@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getKey, getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
+import { getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
 import LatticeLoader from './reactbits/LatticeLoader.jsx'
 
 function DeepSeekIcon() {
@@ -38,8 +38,6 @@ export default function CodeBlock({ name, lang, code }) {
 
   const apply = async () => {
     setErr('')
-    const k = getKey()
-    if (!k) { setErr('Ключ DeepSeek не настроен на сайте'); return }
     if (!prompt.trim()) { setErr('Опишите, что изменить'); return }
     setModel(model)
     setBusy(true)
