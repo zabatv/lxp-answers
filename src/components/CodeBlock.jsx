@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
-import LatticeLoader from './reactbits/LatticeLoader.jsx'
+import ThoughtLine from './reactbits/ThoughtLine.jsx'
 
 function DeepSeekIcon() {
   // стилизованный «кит» DeepSeek
@@ -98,7 +98,14 @@ export default function CodeBlock({ name, lang, code }) {
           <div className="ds-row">
             <button className="ds-apply" onClick={apply} disabled={busy}>
               {busy ? (
-                <LatticeLoader label="DeepSeek" status="working" color="#fff" glow glowColor="#bcd0ff" />
+                <ThoughtLine
+                  label="DeepSeek думает…"
+                  working
+                  collapsible={false}
+                  showTimer
+                  color="#fff"
+                  fontSize={13}
+                />
               ) : (
                 'Применить'
               )}
