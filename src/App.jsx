@@ -6,6 +6,36 @@ import ShinyText from './components/reactbits/ShinyText.jsx'
 import SpotlightCard from './components/reactbits/SpotlightCard.jsx'
 import CodeBlock from './components/CodeBlock.jsx'
 
+function Answer({ a }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <SpotlightCard className={`answer ${open ? 'open' : ''}`}>
+      <button
+        className="answer-head"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <h3>{a.title}</h3>
+        <div className="answer-meta">
+          {a.points != null && <span className="points">{a.points} баллов</span>}
+          <span className="chevron" aria-hidden="true">▾</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="answer-body">
+          {a.task && <p className="task">{a.task}</p>}
+          <div className="files">
+            {a.files.map((f) => (
+              <CodeBlock key={f.name} name={f.name} lang={f.lang} code={f.code} />
+            ))}
+          </div>
+        </div>
+      )}
+    </SpotlightCard>
+  )
+}
+
 export default function App() {
   const [activeId, setActiveId] = useState('xml')
   const active = disciplines.find((d) => d.id === activeId) || disciplines[0]
@@ -24,7 +54,8 @@ export default function App() {
           <GradientText animationSpeed={7}>Ответы по дисциплинам</GradientText>
         </h1>
         <p className="subtitle">
-          Готовые решения контрольных точек и домашних заданий. Выбери дисциплину.
+          Готовые решения контрольных точек и домашних заданий. Выбери дисциплину и
+          разверни нужный ответ.
         </p>
       </header>
 
@@ -58,20 +89,7 @@ export default function App() {
         {active.status === 'ready' ? (
           <div className="answers">
             {active.answers.map((a) => (
-              <SpotlightCard key={a.id} className="answer">
-                <div className="answer-head">
-                  <h3>{a.title}</h3>
-                  {a.points != null && (
-                    <span className="points">{a.points} баллов</span>
-                  )}
-                </div>
-                {a.task && <p className="task">{a.task}</p>}
-                <div className="files">
-                  {a.files.map((f) => (
-                    <CodeBlock key={f.name} name={f.name} lang={f.lang} code={f.code} />
-                  ))}
-                </div>
-              </SpotlightCard>
+              <Answer key={a.id} a={a} />
             ))}
           </div>
         ) : (
