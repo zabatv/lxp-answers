@@ -17,6 +17,7 @@ function Answer({ a }) {
       >
         <h3>{a.title}</h3>
         <div className="answer-meta">
+          {a.note && <span className="todo-flag" title={a.note}>⚠ доделать</span>}
           {a.points != null && <span className="points">{a.points} баллов</span>}
           <span className="chevron" aria-hidden="true">▾</span>
         </div>
@@ -24,6 +25,11 @@ function Answer({ a }) {
 
       {open && (
         <div className="answer-body">
+          {a.note && (
+            <div className="todo-note">
+              <strong>⚠ Что доделать:</strong> {a.note}
+            </div>
+          )}
           {a.task && <p className="task">{a.task}</p>}
           <div className="files">
             {a.files.map((f) => (
