@@ -379,6 +379,12 @@ body {
   font-size: 12.5px;
   word-break: break-word;
 }
+.ds-thinking {
+  padding: 10px 12px;
+  background: rgba(77, 107, 254, 0.08);
+  border: 1px solid rgba(77, 107, 254, 0.22);
+  border-radius: 10px;
+}
 .ds-row { display: flex; gap: 8px; }
 .ds-apply {
   border: 0;

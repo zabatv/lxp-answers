@@ -1,6 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
 import ThoughtLine from './reactbits/ThoughtLine.jsx'
+
+const THINK_STEPS = [
+  'Читаю текущий код',
+  'Разбираю задачу',
+  'Подбираю изменения',
+  'Переписываю код',
+  'Проверяю синтаксис',
+  'Финализирую ответ',
+]
 
 function DeepSeekIcon() {
   // стилизованный «кит» DeepSeek
@@ -24,6 +33,8 @@ export default function CodeBlock({ name, lang, code }) {
   const [model, setModelState] = useState(getModel())
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [steps, setSteps] = useState([])
+  const stepTimer = useRef(null)
 
   const changed = current !== code
   const lines = current.replace(/\n$/, '').split('\n')
@@ -41,6 +52,16 @@ export default function CodeBlock({ name, lang, code }) {
     if (!prompt.trim()) { setErr('Опишите, что изменить'); return }
     setModel(model)
     setBusy(true)
+    setSteps([THINK_STEPS[0]])
+    let idx = 1
+    stepTimer.current = setInterval(() => {
+      if (idx < THINK_STEPS.length) {
+        setSteps(THINK_STEPS.slice(0, idx + 1))
+        idx += 1
+      } else {
+        clearInterval(stepTimer.current)
+      }
+    }, 1200)
     try {
       const out = await refineCode({ code: current, lang, instruction: prompt, model })
       if (out) setCurrent(out)
@@ -49,7 +70,9 @@ export default function CodeBlock({ name, lang, code }) {
     } catch (e) {
       setErr(e.message || 'Ошибка запроса')
     } finally {
+      clearInterval(stepTimer.current)
       setBusy(false)
+      setSteps([])
     }
   }
 
@@ -95,22 +118,27 @@ export default function CodeBlock({ name, lang, code }) {
             rows={3}
           />
           {err && <div className="ds-err">{err}</div>}
+          {busy && (
+            <div className="ds-thinking">
+              <ThoughtLine
+                label="DeepSeek думает…"
+                doneLabel="Готово за"
+                steps={steps}
+                working
+                collapsible
+                color="var(--fg)"
+                glyphColor="#7f97ff"
+                fontSize={14}
+              />
+            </div>
+          )}
           <div className="ds-row">
             <button className="ds-apply" onClick={apply} disabled={busy}>
-              {busy ? (
-                <ThoughtLine
-                  label="DeepSeek думает…"
-                  working
-                  collapsible={false}
-                  showTimer
-                  color="#fff"
-                  fontSize={13}
-                />
-              ) : (
-                'Применить'
-              )}
+              {busy ? 'Думаю…' : 'Применить'}
             </button>
-            <button className="ds-cancel" onClick={() => setPanel(false)}>Отмена</button>
+            <button className="ds-cancel" onClick={() => setPanel(false)} disabled={busy}>
+              Отмена
+            </button>
           </div>
         </div>
       )}
