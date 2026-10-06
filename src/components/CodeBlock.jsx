@@ -42,7 +42,7 @@ export default function CodeBlock({ name, lang, code }) {
     setModel(model)
     setBusy(true)
     try {
-      const out = await refineCode({ code: current, lang, instruction: prompt, key: k, model })
+      const out = await refineCode({ code: current, lang, instruction: prompt, model })
       if (out) setCurrent(out)
       setPrompt('')
       setPanel(false)
