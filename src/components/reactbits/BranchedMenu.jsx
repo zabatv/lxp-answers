@@ -149,6 +149,7 @@ export default function BranchedMenu({
               aria-expanded={kids ? isOpen : undefined}
               aria-current={leafActive ? 'true' : undefined}
               data-active={leafActive ? '' : undefined}
+              data-leaf={kids ? undefined : ''}
               onClick={() => (kids ? toggle(i) : select(leafValue, item))}
             >
               {item.label}
