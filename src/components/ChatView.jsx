@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Attachment01Icon, BookOpen01Icon, Copy01Icon, Delete02Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { Attachment01Icon, BookOpen01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
 import { readyDisciplines } from '../lib/lessons.js'
 import { chat, hasProxy } from '../lib/deepseek.js'
 import AiIcon from './AiIcon.jsx'
+import ChatMarkdown from './ChatMarkdown.jsx'
 import Icon from './Icon.jsx'
 import PromptBar from './reactbits/PromptBar.jsx'
 import StatusMark from './reactbits/StatusMark.jsx'
@@ -49,41 +50,6 @@ function readText(file) {
   })
 }
 
-// ответ — текст с блоками ```код```: код показываем отдельно, с кнопкой «Копировать»
-function CodePart({ lang, code }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    navigator.clipboard?.writeText(code).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1400)
-    })
-  }
-  return (
-    <div className="chat-code">
-      <div className="chat-code-head">
-        <span>{lang || 'код'}</span>
-        <button type="button" className="chat-code-copy" onClick={copy} aria-label="Скопировать код">
-          <Icon icon={copied ? Tick02Icon : Copy01Icon} size={14} />
-          {copied ? 'Скопировано' : 'Копировать'}
-        </button>
-      </div>
-      <pre>
-        <code>{code}</code>
-      </pre>
-    </div>
-  )
-}
-
-function RichText({ text }) {
-  const parts = text.split(/```([^\n`]*)\n?([\s\S]*?)(?:```|$)/g)
-  const out = []
-  for (let i = 0; i < parts.length; i += 3) {
-    if (parts[i]?.trim()) out.push(<p key={i} className="chat-text">{parts[i].trim()}</p>)
-    if (i + 2 < parts.length) out.push(<CodePart key={`c${i}`} lang={parts[i + 1].trim()} code={parts[i + 2].replace(/\n$/, '')} />)
-  }
-  return out
-}
-
 const STATUS_LABEL = {
   running: 'LXP AI думает…',
   done: 'Ответ готов',
@@ -103,7 +69,7 @@ export default function ChatView() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-60)))
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-60).map(({ fresh, ...m }) => m)))
     } catch {
       /* без хранилища история живёт до перезагрузки */
     }
@@ -112,6 +78,13 @@ export default function ChatView() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
   }, [messages.length, busy])
+
+  // пока ответ печатается — держим низ в поле зрения, если пользователь не прокрутил вверх
+  const followTyping = useCallback(() => {
+    const el = endRef.current
+    if (!el) return
+    if (el.getBoundingClientRect().top - window.innerHeight < 260) el.scrollIntoView({ block: 'end' })
+  }, [])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -192,7 +165,7 @@ export default function ChatView() {
         model,
         signal: ctrl.signal,
       })
-      finish({ content: text || 'Пустой ответ — попробуй переформулировать вопрос.', status: 'done' })
+      finish({ content: text || 'Пустой ответ — попробуй переформулировать вопрос.', status: 'done', fresh: true })
     } catch (err) {
       if (ctrl.signal.aborted) finish({ status: 'cancelled' })
       else finish({ content: err.message || String(err), status: 'failed' })
@@ -288,11 +261,17 @@ export default function ChatView() {
                   size={16}
                   fontSize={13}
                 />
-                {m.content && (
-                  <div className="chat-body">
-                    <RichText text={m.content} />
-                  </div>
-                )}
+                {m.content &&
+                  (m.status === 'done' ? (
+                    <ChatMarkdown
+                      text={m.content}
+                      animate={Boolean(m.fresh)}
+                      onProgress={followTyping}
+                      onDone={() => setMessages((list) => list.map((x, j) => (j === i ? { ...x, fresh: false } : x)))}
+                    />
+                  ) : (
+                    <p className="chat-text">{m.content}</p>
+                  ))}
               </div>
             )
           )

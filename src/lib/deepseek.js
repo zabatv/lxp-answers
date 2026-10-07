@@ -62,12 +62,19 @@ export async function refineCode({ code, lang, instruction, model, context }) {
 // Чат: вся история уходит на прокси, ответ — обычный текст (markdown).
 export async function chat({ messages, model, signal }) {
   if (!PROXY) throw new Error(NO_PROXY)
-  const res = await fetch(PROXY.replace(/\/$/, '') + '/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, model: model || getModel() }),
-    signal,
-  })
+  let res
+  try {
+    res = await fetch(PROXY.replace(/\/$/, '') + '/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, model: model || getModel() }),
+      signal,
+    })
+  } catch (err) {
+    if (signal?.aborted) throw err
+    // бесплатный сервер на Render засыпает — первый запрос после паузы может не пройти
+    throw new Error('LXP AI сейчас недоступен — нет связи с сервером. Подожди минуту и отправь ещё раз.')
+  }
   if (!res.ok) {
     let detail = ''
     try { detail = await res.text() } catch { /* ignore */ }

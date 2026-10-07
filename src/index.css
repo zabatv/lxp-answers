@@ -2180,3 +2180,150 @@ button {
 .chat-input .prompt-bar {
   max-width: 100%;
 }
+
+/* ответ LXP AI: Markdown */
+.chat-md {
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.chat-md > :first-child {
+  margin-top: 0;
+}
+.chat-md > :last-child {
+  margin-bottom: 0;
+}
+.chat-md p,
+.chat-md ul,
+.chat-md ol,
+.chat-md blockquote,
+.chat-md .chat-table,
+.chat-md .chat-code,
+.chat-md .katex-display {
+  margin: 0 0 12px;
+}
+.chat-md h1,
+.chat-md h2,
+.chat-md h3,
+.chat-md h4 {
+  margin: 18px 0 8px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.chat-md h1 { font-size: 21px; }
+.chat-md h2 { font-size: 18px; }
+.chat-md h3,
+.chat-md h4 { font-size: 16px; }
+.chat-md ul,
+.chat-md ol {
+  padding-left: 22px;
+}
+.chat-md li + li {
+  margin-top: 4px;
+}
+.chat-md li::marker {
+  color: var(--accent);
+}
+.chat-md strong {
+  color: #fff;
+  font-weight: 650;
+}
+.chat-md a {
+  color: var(--accent-3);
+  text-underline-offset: 3px;
+}
+.chat-md blockquote {
+  padding: 4px 0 4px 14px;
+  border-left: 3px solid var(--accent);
+  color: var(--text-2);
+}
+.chat-md hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--line-2);
+}
+.chat-md :not(pre) > code {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+.chat-table {
+  overflow-x: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+}
+.chat-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.chat-table th,
+.chat-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.chat-table th {
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+}
+.chat-table tr:last-child td {
+  border-bottom: 0;
+}
+.chat-md .katex {
+  font-size: 1.08em;
+}
+.chat-md .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+}
+.chat-md[data-typing] {
+  cursor: pointer;
+}
+
+/* «печатание» в духе ScrollReveal: слово проявляется из размытия, блок доворачивается */
+.chat-md .tw {
+  display: inline-block;
+}
+.chat-md .chat-code.tw,
+.chat-md .katex-display.tw {
+  display: block;
+}
+.chat-md[data-anim] {
+  transform-origin: 0% 50%;
+  animation: md-tilt 0.9s var(--ease-out) both;
+}
+.chat-md[data-anim] .tw {
+  animation: tw-reveal 0.55s ease-out both;
+}
+@keyframes tw-reveal {
+  from {
+    opacity: 0.1;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes md-tilt {
+  from {
+    transform: rotate(1.2deg);
+  }
+  to {
+    transform: rotate(0);
+  }
+}
+.chat-code pre.code-pre {
+  display: block;
+  padding: 12px 14px;
+  overflow-x: auto;
+  line-height: 1.6;
+}
