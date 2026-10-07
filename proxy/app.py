@@ -11,7 +11,22 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import opendeep as _od
 
-TOKEN = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+def clean_token(raw):
+    # в localStorage chat.deepseek.com userToken лежит как {"value": "...", "__version": "0"};
+    # принимаем и такой JSON, и токен в кавычках, и с приставкой «Bearer »
+    t = (raw or "").strip().strip("'")
+    if t.startswith("{"):
+        try:
+            t = str(json.loads(t).get("value", ""))
+        except Exception:  # noqa: BLE001
+            pass
+    t = t.strip().strip('"').strip()
+    if t.lower().startswith("bearer "):
+        t = t[7:].strip()
+    return t
+
+
+TOKEN = clean_token(os.environ.get("DEEPSEEK_API_KEY", ""))
 ALLOW_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*").strip() or "*"
 if TOKEN:
     try:
@@ -68,10 +83,24 @@ def generate(code, lang, instruction, model):
     return (resp.text or "").strip()
 
 
+def deepseek_status():
+    # прямой запрос, чтобы показать настоящий ответ DeepSeek (code/msg), а не падение opendeep
+    try:
+        gm = _od.GenerativeModel("deepseek-chat")
+        r = gm.session.post(_od.config.base_url + "/chat_session/create", headers=gm._get_headers(), json={"character_id": None})
+        try:
+            d = r.json()
+            return f"HTTP {r.status_code}, code {d.get('code')}: {d.get('msg')}"
+        except Exception:  # noqa: BLE001
+            return f"HTTP {r.status_code}: {r.text[:200]}"
+    except Exception as exc:  # noqa: BLE001
+        return f"{type(exc).__name__}: {exc}"
+
+
 def explain(exc):
-    # chat.deepseek.com при неверном/устаревшем токене отвечает data: null — opendeep падает на .get()
+    # chat.deepseek.com при ошибке отвечает data: null — opendeep падает на .get()
     if isinstance(exc, AttributeError) and "NoneType" in str(exc):
-        return "токен DeepSeek недействителен или устарел — обнови DEEPSEEK_API_KEY в настройках прокси"
+        return f"DeepSeek отказал ({deepseek_status()}). Токен: {len(TOKEN)} симв."
     return f"opendeep: {exc}"
 
 
@@ -96,7 +125,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        self._json(200, {"ok": True, "tokenSet": bool(TOKEN)})
+        self._json(200, {"ok": True, "tokenSet": bool(TOKEN), "tokenLength": len(TOKEN)})
 
     def do_POST(self):
         path = self.path.rstrip("/")
