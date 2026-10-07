@@ -3,7 +3,7 @@
 // На основе ReactBits BranchedMenu. Убрана зависимость от @hugeicons:
 // иконки передаются как React-элементы (необязательны).
 // Дополнено: управляемый `active` (раздел с ним раскрывается сам),
-// `meta` у раздела (счётчик справа), шеврон и `title` (подсказка) у пунктов.
+// `meta` у раздела и у пункта (метки справа), шеврон и `title` (подсказка) у пунктов.
 import { isValidElement, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './BranchedMenu.css';
 
@@ -208,6 +208,7 @@ export default function BranchedMenu({
                           </span>
                         ) : null}
                         <span className="branched-menu__label">{kid.label}</span>
+                        {kid.meta != null ? <span className="branched-menu__item-meta">{kid.meta}</span> : null}
                       </button>
                     ))}
                   </div>

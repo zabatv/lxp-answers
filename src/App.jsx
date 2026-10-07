@@ -6,7 +6,6 @@ import {
   findLesson,
   hashFromValue,
   lessons,
-  menuLabel,
   valueFromHash,
 } from './lib/lessons.js'
 import ShinyText from './components/reactbits/ShinyText.jsx'
@@ -118,7 +117,7 @@ export default function App() {
   useEffect(() => {
     let name = discipline ? discipline.name : ''
     if (lesson) {
-      const { num, text } = menuLabel(lesson.a.title)
+      const { num, text } = lesson.label
       name = num ? `№${num} ${text}` : text
     }
     document.title = name ? `${name} · Ответы LXP` : 'Ответы · LXP'

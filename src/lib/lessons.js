@@ -5,10 +5,39 @@ import { disciplines } from '../data/disciplines.js'
 export const readyDisciplines = disciplines.filter((d) => d.status === 'ready')
 export const soonDisciplines = disciplines.filter((d) => d.status !== 'ready')
 
+// Короткие подписи для меню, «Назад/Далее» и заголовка вкладки:
+//   «КТ №5 — Класс с двумя переменными» → num «5», text «Класс с двумя переменными»
+//   «КТ: DTD — «Использование DTD»»      → text «КТ: DTD» (в кавычках — имя задания в LXP)
+//   если у нескольких заданий дисциплины одна тема
+//   («Методы доказательства — «Принцип Дирихле»»…) — берём имя задания: «Принцип Дирихле»
+export function menuLabels(answers) {
+  const parts = answers.map((a) => {
+    const [head, ...rest] = a.title.split(' — ')
+    return { head, tail: rest.join(' — ') }
+  })
+  const repeats = new Map()
+  parts.forEach(({ head }) => repeats.set(head, (repeats.get(head) || 0) + 1))
+  return parts.map(({ head, tail }, i) => {
+    if (!tail) return { num: '', text: answers[i].title }
+    const m = head.match(/^(?:КТ|Практическая работа)\s*№?\s*(\d+)$/)
+    if (m) return { num: m[1], text: tail[0].toUpperCase() + tail.slice(1) }
+    if (repeats.get(head) > 1) return { num: '', text: tail.replace(/^«(.*)»$/, '$1') }
+    return { num: '', text: head }
+  })
+}
+
 // value «дисциплина::урок» — в том же формате его отдаёт BranchedMenu
-export const lessons = readyDisciplines.flatMap((d) =>
-  d.answers.map((a, i) => ({ value: `${d.id}::${a.id}`, d, a, index: i, total: d.answers.length }))
-)
+export const lessons = readyDisciplines.flatMap((d) => {
+  const labels = menuLabels(d.answers)
+  return d.answers.map((a, i) => ({
+    value: `${d.id}::${a.id}`,
+    d,
+    a,
+    index: i,
+    total: d.answers.length,
+    label: labels[i],
+  }))
+})
 
 export const DEFAULT_VALUE = lessons.length ? lessons[0].value : disciplines[0].id
 
@@ -19,18 +48,6 @@ export function findLesson(value) {
 export function findDiscipline(value) {
   const id = value.split('::')[0]
   return disciplines.find((d) => d.id === id) || null
-}
-
-// Короткая подпись для меню:
-//   «КТ №5 — Класс с двумя переменными» → num «5», text «Класс с двумя переменными»
-//   «КТ: DTD — «Использование DTD»»      → text «КТ: DTD» (в кавычках — имя задания в LXP)
-export function menuLabel(title) {
-  const [head, ...rest] = title.split(' — ')
-  const tail = rest.join(' — ')
-  if (!tail) return { num: '', text: title }
-  const m = head.match(/^(?:КТ|Практическая работа)\s*№?\s*(\d+)$/)
-  if (m) return { num: m[1], text: tail[0].toUpperCase() + tail.slice(1) }
-  return { num: '', text: head }
 }
 
 // ---------- ссылки ----------

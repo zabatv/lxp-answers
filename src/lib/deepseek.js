@@ -18,15 +18,31 @@ export function setModel(m) {
   try { localStorage.setItem(MODEL_STORAGE, m) } catch { /* приватный режим */ }
 }
 
+// Контекст задания (условие с платформы, пометки, уникальные данные) дописывается к просьбе,
+// чтобы DeepSeek пересчитывал решение тем же методом — прокси менять не нужно.
+function withContext(instruction, context) {
+  if (!context) return instruction
+  return (
+    `${instruction}\n\n---\nКонтекст — задание с учебной платформы:\n${context}\n\n` +
+    'Сохрани метод решения и оформление. Если меняются исходные данные — заново пересчитай ' +
+    'все шаги (не подгоняй под старый ответ) и проверь итог подстановкой.'
+  )
+}
+
 // Отправляет код + инструкцию на прокси, получает переписанный код.
-export async function refineCode({ code, lang, instruction, model }) {
+export async function refineCode({ code, lang, instruction, model, context }) {
   if (!PROXY) {
     throw new Error('Прокси DeepSeek не настроен (переменная VITE_DEEPSEEK_PROXY)')
   }
   const res = await fetch(PROXY.replace(/\/$/, '') + '/api/refine', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, lang, instruction, model: model || getModel() }),
+    body: JSON.stringify({
+      code,
+      lang,
+      instruction: withContext(instruction, context),
+      model: model || getModel(),
+    }),
   })
 
   if (!res.ok) {

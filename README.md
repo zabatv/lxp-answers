@@ -37,7 +37,9 @@ npm run preview  # предпросмотр сборки
 src/
   App.jsx                     каркас: фон, боковая панель, урок, ссылки и горячие клавиши
   index.css                   оформление (цвета — переменные в :root)
-  data/                       дисциплины и ответы (disciplines.js, oop.js, htmlcss.js)
+  data/                       дисциплины и ответы (disciplines.js, oop.js, htmlcss.js,
+                              discrete.js, logic.js, highermath.js; plot.js и fsa.js —
+                              генераторы HTML-страниц с графиками и диаграммами автоматов)
   lib/
     lessons.js                плоский список уроков, поиск, подписи меню, ссылки
     highlight.js              подсветка синтаксиса (highlight.js)

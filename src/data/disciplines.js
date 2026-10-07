@@ -2,22 +2,25 @@
 // У остальных — status: 'soon' (заглушка «в разработке»), заполнишь позже тем же форматом.
 import { oopAnswers } from './oop.js'
 import { htmlcssAnswers } from './htmlcss.js'
+import { discreteAnswers } from './discrete.js'
+import { logicAnswers } from './logic.js'
+import { mathAnswers } from './highermath.js'
 
 export const disciplines = [
   { id: 'xml', name: 'XML технологии', teacher: 'Край Дисана', status: 'ready', answers: xmlAnswers() },
   { id: 'prompt', name: 'Prompt-Engineering для ИИ', teacher: 'Ремизов Г. А.', status: 'soon' },
   { id: 'english', name: 'Английский язык A2+', teacher: '', status: 'soon' },
   { id: 'pm', name: 'Введение в управление проектами', teacher: 'Шукова Л. В.', status: 'soon' },
-  { id: 'discrete', name: 'Дискретная математика', teacher: 'Киржинов Р. А.', status: 'soon' },
+  { id: 'discrete', name: 'Дискретная математика', teacher: 'Киржинов Р. А.', status: 'ready', answers: discreteAnswers },
   { id: 'history', name: 'История', teacher: '', status: 'soon' },
-  { id: 'logic', name: 'Мат. логика и теория алгоритмов', teacher: 'Киржинов Р. А.', status: 'soon' },
+  { id: 'logic', name: 'Мат. логика и теория алгоритмов', teacher: 'Киржинов Р. А.', status: 'ready', answers: logicAnswers },
   { id: 'oop', name: 'ООП на C#', teacher: 'Ремизов Г. А.', status: 'ready', answers: oopAnswers },
   { id: 'htmlcss', name: 'Основы HTML/CSS', teacher: 'Кошеева А. М.', status: 'ready', answers: htmlcssAnswers },
   { id: 'linux', name: 'Основы Linux', teacher: 'Таов А. А.', status: 'soon' },
   { id: 'db', name: 'Основы проектирования БД', teacher: 'Край Дисана', status: 'soon' },
   { id: 'project', name: 'Проектная деятельность', teacher: '', status: 'soon' },
   { id: 'pe', name: 'Физическая культура', teacher: '', status: 'soon' },
-  { id: 'math', name: 'Элементы высшей математики', teacher: 'Киржинов Р. А.', status: 'soon' },
+  { id: 'math', name: 'Элементы высшей математики', teacher: 'Киржинов Р. А.', status: 'ready', answers: mathAnswers },
 ]
 
 function xmlAnswers() {

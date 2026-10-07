@@ -601,6 +601,52 @@ button {
   text-overflow: ellipsis;
 }
 
+/* метки заданий в списке: КТ на баллы и «нужно доделать» */
+.bm-kt,
+.bm-todo {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  height: 17px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  cursor: help;
+}
+
+.bm-kt {
+  padding: 0 6px;
+  border: 1px solid rgba(69, 230, 176, 0.32);
+  background: rgba(69, 230, 176, 0.09);
+  color: #7ef0c6;
+  letter-spacing: 0.02em;
+}
+
+.bm-todo {
+  width: 17px;
+  border: 1px solid rgba(255, 181, 71, 0.45);
+  background: rgba(255, 181, 71, 0.14);
+  color: #ffc670;
+}
+
+.result-disc {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.result-disc .bm-kt,
+.result-disc .bm-todo {
+  height: 15px;
+  font-size: 9.5px;
+}
+
+.result-disc > :is(.bm-kt, .bm-todo):first-of-type {
+  margin-left: auto;
+}
+
 .bm-num {
   display: inline-block;
   min-width: 1.7em;
@@ -856,6 +902,12 @@ button {
   color: #ffc670;
 }
 
+.chip--unique {
+  border-color: rgba(139, 123, 255, 0.45);
+  background: rgba(139, 123, 255, 0.12);
+  color: #c7bcff;
+}
+
 .task-card {
   margin-top: 30px;
   padding: 20px 22px 22px;
@@ -899,6 +951,29 @@ button {
   color: #eadfcd;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.callout--unique {
+  border-color: rgba(139, 123, 255, 0.35);
+  background: linear-gradient(135deg, rgba(139, 123, 255, 0.13), rgba(76, 201, 240, 0.05)), var(--sheet);
+}
+
+.callout--unique > svg,
+.callout--unique strong {
+  color: #c7bcff;
+}
+
+.callout--unique p {
+  color: #dcd8f5;
+}
+
+.callout p + p {
+  margin-top: 6px;
+}
+
+.callout .callout-hint {
+  color: var(--text-2);
+  font-size: 13px;
 }
 
 .files {
@@ -983,6 +1058,41 @@ button {
   background: rgba(77, 107, 254, 0.14);
   color: var(--ds-text);
   font-size: 11px;
+  font-weight: 600;
+}
+
+.code-unique {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid rgba(139, 123, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(139, 123, 255, 0.12);
+  color: #c7bcff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+}
+
+.unique-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(139, 123, 255, 0.22);
+  background: rgba(139, 123, 255, 0.08);
+  color: #dcd8f5;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.unique-bar svg {
+  flex: none;
+  margin-top: 2px;
+  color: #c7bcff;
+}
+
+.unique-bar strong {
+  color: #c7bcff;
   font-weight: 600;
 }
 
@@ -1160,6 +1270,17 @@ button {
   color: #d5d8ec;
   white-space: pre;
   tab-size: 2;
+}
+
+/* решения задач: длинные строки переносятся, таблицы остаются ровными (моноширинный шрифт) */
+.code-pre--prose {
+  min-width: 0;
+  padding: 18px 22px;
+  color: #e2e4f3;
+  font-size: 13.5px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 /* тема подсветки highlight.js */

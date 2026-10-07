@@ -7,17 +7,18 @@ import {
   File02Icon,
   StarIcon,
   Task01Icon,
+  UserEdit01Icon,
 } from '@hugeicons/core-free-icons'
 import { archiveName, downloadZip } from '../lib/files.js'
 import { langMeta } from '../lib/highlight.js'
-import { menuLabel, plural } from '../lib/lessons.js'
+import { plural } from '../lib/lessons.js'
 import CodeBlock from './CodeBlock.jsx'
 import Icon from './Icon.jsx'
 import SpotlightCard from './reactbits/SpotlightCard.jsx'
 
 function PagerCard({ lesson, dir, current, onSelect }) {
   if (!lesson) return <span className="pager-spacer" />
-  const { num, text } = menuLabel(lesson.a.title)
+  const { num, text } = lesson.label
   const otherDiscipline = lesson.d.id !== current.d.id
   return (
     <SpotlightCard
@@ -52,6 +53,22 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
     [a.files, edits]
   )
   const setFile = (name, code) => setEdits((prev) => ({ ...prev, [name]: code }))
+
+  // решение зависит от данных конкретного студента (вариант, условие от преподавателя…)
+  const hasUnique = Boolean(a.unique) || a.files.some((f) => f.unique)
+
+  // что DeepSeek узнаёт о задании вместе с просьбой — чтобы пересчитал тем же методом
+  const contextFor = (f) =>
+    [
+      `Дисциплина: ${d.name}`,
+      `Задание: ${a.title}`,
+      a.task && `Условие: ${a.task}`,
+      a.note && `Пометка: ${a.note}`,
+      a.unique && `Уникальные данные задания: ${a.unique}`,
+      f.unique && `Уникальные данные в файле ${f.name}: ${f.unique}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
 
   return (
     <article className="lesson">
@@ -88,6 +105,12 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
               Нужно доделать
             </span>
           )}
+          {hasUnique && (
+            <span className="chip chip--unique">
+              <Icon icon={UserEdit01Icon} size={14} />
+              Свои данные
+            </span>
+          )}
         </div>
       </header>
 
@@ -107,6 +130,21 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
           <div>
             <strong>Что доделать</strong>
             <p>{a.note}</p>
+          </div>
+        </div>
+      )}
+
+      {hasUnique && (
+        <div className="callout callout--unique" role="note">
+          <Icon icon={UserEdit01Icon} size={18} />
+          <div>
+            <strong>Уникальные данные</strong>
+            {a.unique && <p>{a.unique}</p>}
+            <p className="callout-hint">
+              Где решение зависит от твоих данных, у файла стоит метка «свои данные». Нажми у него DeepSeek
+              и впиши своё условие — он пересчитает решение тем же методом: условие задания и пометки
+              уходят ему вместе с просьбой.
+            </p>
           </div>
         </div>
       )}
@@ -139,6 +177,8 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
             original={a.files[i].code}
             onChange={(code) => setFile(f.name, code)}
             files={files}
+            unique={f.unique}
+            context={contextFor(f)}
           />
         ))}
       </section>

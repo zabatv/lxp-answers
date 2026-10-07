@@ -7,6 +7,7 @@ import {
   StopIcon,
   Tick02Icon,
   Undo02Icon,
+  UserEdit01Icon,
 } from '@hugeicons/core-free-icons'
 import { getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
 import { downloadFile } from '../lib/files.js'
@@ -41,7 +42,9 @@ function DeepSeekIcon() {
 
 // code — текущий текст файла (с правками DeepSeek), original — исходный из ответа.
 // files — все файлы задания: HTML запускается вместе со своим style.css.
-export default function CodeBlock({ name, lang, code, original, onChange, files }) {
+// unique — какие данные в решении уникальные (вариант, условие от преподавателя…);
+// context — условие задания и пометки: уходят в DeepSeek вместе с просьбой.
+export default function CodeBlock({ name, lang, code, original, onChange, files, unique, context }) {
   const [copied, setCopied] = useState(false)
   const [panel, setPanel] = useState(false)
   const [running, setRunning] = useState(false)
@@ -60,6 +63,8 @@ export default function CodeBlock({ name, lang, code, original, onChange, files 
 
   const changed = code !== original
   const runnable = lang === 'html'
+  // текстовые ответы (решения задач) — с переносом строк и без номеров
+  const prose = lang === 'text'
   const text = code.replace(/\n$/, '')
   const lineCount = text.split('\n').length
   const html = useMemo(() => highlight(text, lang), [text, lang])
@@ -94,7 +99,7 @@ export default function CodeBlock({ name, lang, code, original, onChange, files 
       }
     }, Math.floor(2000 / THINK_STEPS.length))
     try {
-      const out = await refineCode({ code, lang, instruction: prompt, model })
+      const out = await refineCode({ code, lang, instruction: prompt, model, context })
       if (out) onChange(out)
       setPrompt('')
       setPanel(false)
@@ -120,6 +125,11 @@ export default function CodeBlock({ name, lang, code, original, onChange, files 
         <div className="code-file">
           <span className="lang-badge" style={{ '--lang': meta.color }}>{meta.label}</span>
           <span className="code-name" title={name}>{name}</span>
+          {unique && (
+            <span className="code-unique" title={unique}>
+              свои данные
+            </span>
+          )}
           {changed && <span className="code-edited" title="Код изменён через DeepSeek">изменён</span>}
         </div>
         <div className="code-actions">
@@ -183,6 +193,15 @@ export default function CodeBlock({ name, lang, code, original, onChange, files 
         </div>
       </div>
 
+      {unique && (
+        <div className="unique-bar">
+          <Icon icon={UserEdit01Icon} size={15} />
+          <span>
+            <strong>Свои данные:</strong> {unique}
+          </span>
+        </div>
+      )}
+
       {panel && (
         <div className="ds-panel">
           <div className="ds-top">
@@ -203,7 +222,11 @@ export default function CodeBlock({ name, lang, code, original, onChange, files 
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={onPromptKey}
-            placeholder="Напр.: добавь комментарии; перепиши под .NET 6; упрости; найди ошибку"
+            placeholder={
+              unique
+                ? 'Впиши свои данные, напр.: «мой вариант: …» — DeepSeek пересчитает решение тем же методом'
+                : 'Напр.: добавь комментарии; перепиши под .NET 6; упрости; найди ошибку'
+            }
             rows={3}
             autoFocus
           />
@@ -244,12 +267,14 @@ export default function CodeBlock({ name, lang, code, original, onChange, files 
       {running && <HtmlPreview doc={previewDoc} name={name} />}
 
       <div className="code-body">
-        <pre className="code-gutter" aria-hidden="true">
-          {Array.from({ length: lineCount }, (_, i) => (
-            <span key={i}>{i + 1}</span>
-          ))}
-        </pre>
-        <pre className="code-pre">
+        {!prose && (
+          <pre className="code-gutter" aria-hidden="true">
+            {Array.from({ length: lineCount }, (_, i) => (
+              <span key={i}>{i + 1}</span>
+            ))}
+          </pre>
+        )}
+        <pre className={`code-pre${prose ? ' code-pre--prose' : ''}`}>
           <code dangerouslySetInnerHTML={{ __html: html }} />
         </pre>
       </div>

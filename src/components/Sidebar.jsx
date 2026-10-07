@@ -3,7 +3,7 @@ import { Cancel01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { disciplines } from '../data/disciplines.js'
 import {
   lessons,
-  menuLabel,
+  menuLabels,
   plural,
   queryWords,
   readyDisciplines,
@@ -43,13 +43,32 @@ function Marked({ text, words }) {
 
 const withTeacher = (d) => (d.teacher ? `${d.name} · ${d.teacher}` : d.name)
 
+// метки задания в списке: КТ (на баллы) и «нужно доделать»
+function Marks({ a }) {
+  if (a.points == null && !a.note) return null
+  return (
+    <>
+      {a.note && (
+        <span className="bm-todo" title={`Нужно доделать: ${a.note}`}>
+          !
+        </span>
+      )}
+      {a.points != null && (
+        <span className="bm-kt" title={`Контрольная точка — ${a.points} ${plural(a.points, ['балл', 'балла', 'баллов'])}`}>
+          КТ {a.points}
+        </span>
+      )}
+    </>
+  )
+}
+
 export default function Sidebar({ selected, onSelect, query, onQuery, searchRef, open, onClose }) {
   const scrollRef = useRef(null)
 
   const readyItems = useMemo(
     () =>
       readyDisciplines.map((d) => {
-        const labels = d.answers.map((a) => menuLabel(a.title))
+        const labels = menuLabels(d.answers)
         // если в дисциплине есть номера, ненумерованные пункты выравниваем точкой
         const numbered = labels.some((l) => l.num)
         return {
@@ -65,6 +84,7 @@ export default function Sidebar({ selected, onSelect, query, onQuery, searchRef,
                 {labels[i].text}
               </>
             ),
+            meta: a.points != null || a.note ? <Marks a={a} /> : null,
           })),
         }
       }),
@@ -155,7 +175,10 @@ export default function Sidebar({ selected, onSelect, query, onQuery, searchRef,
                   data-active={l.value === selected ? '' : undefined}
                   onClick={() => onSelect(l.value)}
                 >
-                  <span className="result-disc">{l.d.name}</span>
+                  <span className="result-disc">
+                    {l.d.name}
+                    <Marks a={l.a} />
+                  </span>
                   <span className="result-title">
                     <Marked text={l.a.title} words={words} />
                   </span>

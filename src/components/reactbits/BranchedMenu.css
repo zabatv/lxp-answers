@@ -223,6 +223,14 @@
   white-space: nowrap;
 }
 
+.branched-menu__item-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .branched-menu__marker {
     transition: opacity 150ms ease;
