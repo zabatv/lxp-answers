@@ -465,7 +465,21 @@ button {
 
 .brand-mark {
   flex: none;
-  filter: drop-shadow(0 6px 16px rgba(110, 120, 255, 0.35));
+  filter: drop-shadow(0 6px 18px rgba(91, 140, 255, 0.4));
+  transition: transform 0.35s var(--ease-out), filter 0.35s var(--ease-out);
+}
+.brand:hover .brand-mark {
+  transform: rotate(-6deg) scale(1.06);
+  filter: drop-shadow(0 8px 24px rgba(69, 230, 176, 0.45));
+}
+.logo-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-spark 3.2s ease-in-out infinite;
+}
+@keyframes logo-spark {
+  0%, 100% { opacity: 0.55; transform: scale(0.75) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(45deg); }
 }
 
 .brand-text {

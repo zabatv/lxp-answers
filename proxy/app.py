@@ -68,6 +68,13 @@ def generate(code, lang, instruction, model):
     return (resp.text or "").strip()
 
 
+def explain(exc):
+    # chat.deepseek.com при неверном/устаревшем токене отвечает data: null — opendeep падает на .get()
+    if isinstance(exc, AttributeError) and "NoneType" in str(exc):
+        return "токен DeepSeek недействителен или устарел — обнови DEEPSEEK_API_KEY в настройках прокси"
+    return f"opendeep: {exc}"
+
+
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", ALLOW_ORIGIN)
@@ -111,7 +118,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 text = chat(messages, str(body.get("model", "deepseek-chat")))
             except Exception as exc:  # noqa: BLE001
-                self._json(502, {"error": f"opendeep: {exc}"})
+                self._json(502, {"error": explain(exc)})
                 return
             self._json(200, {"text": text})
             return
@@ -128,7 +135,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             text = generate(code, lang, instruction, model)
         except Exception as exc:  # noqa: BLE001
-            self._json(502, {"error": f"opendeep: {exc}"})
+            self._json(502, {"error": explain(exc)})
             return
         self._json(200, {"text": text})
 
