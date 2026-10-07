@@ -46,7 +46,7 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
   const { d, a, index, total } = lesson
   const langs = [...new Set(a.files.map((f) => langMeta(f.lang).label))]
 
-  // текущий текст файлов (с правками DeepSeek) — его скачивают и запускают
+  // текущий текст файлов (с правками LXP AI) — его скачивают и запускают
   const [edits, setEdits] = useState({})
   const files = useMemo(
     () => a.files.map((f) => (f.name in edits ? { ...f, code: edits[f.name] } : f)),
@@ -57,7 +57,7 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
   // решение зависит от данных конкретного студента (вариант, условие от преподавателя…)
   const hasUnique = Boolean(a.unique) || a.files.some((f) => f.unique)
 
-  // что DeepSeek узнаёт о задании вместе с просьбой — чтобы пересчитал тем же методом
+  // что LXP AI узнаёт о задании вместе с просьбой — чтобы пересчитал тем же методом
   const contextFor = (f) =>
     [
       `Дисциплина: ${d.name}`,
@@ -141,7 +141,7 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
             <strong>Уникальные данные</strong>
             {a.unique && <p>{a.unique}</p>}
             <p className="callout-hint">
-              Где решение зависит от твоих данных, у файла стоит метка «свои данные». Нажми у него DeepSeek
+              Где решение зависит от твоих данных, у файла стоит метка «свои данные». Нажми у него LXP AI
               и впиши своё условие — он пересчитает решение тем же методом: условие задания и пометки
               уходят ему вместе с просьбой.
             </p>

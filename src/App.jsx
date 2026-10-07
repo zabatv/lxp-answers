@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Menu01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import {
+  CHAT,
   DEFAULT_VALUE,
   findDiscipline,
   findLesson,
@@ -15,14 +16,12 @@ import SoonView from './components/SoonView.jsx'
 import Icon from './components/Icon.jsx'
 
 // three.js тяжёлый — фон грузится отдельным чанком, контент показывается сразу
-const Antigravity = lazy(() => import('./components/reactbits/Antigravity.jsx'))
+const FloatingLines = lazy(() => import('./components/reactbits/FloatingLines.jsx'))
+// чат (PromptBar, StatusMark) — тоже отдельным чанком, только когда его открыли
+const ChatView = lazy(() => import('./components/ChatView.jsx'))
 
-const PARTICLE_COLORS = ['#8b7bff', '#a99bff', '#5b8cff', '#4cc9f0', '#45e6b0']
-// на узком экране частиц меньше и кольцо уже — иначе они закрывают текст
-const PARTICLES = {
-  wide: { count: 260, ringRadius: 9, magnetRadius: 11 },
-  compact: { count: 90, ringRadius: 5, magnetRadius: 6.5 },
-}
+// фон Floating Lines в цветах сайта; на узком экране линий меньше — не мешают читать
+const LINE_GRADIENT = ['#8b7bff', '#5b8cff', '#4cc9f0', '#45e6b0']
 const COMPACT = '(max-width: 960px)'
 
 function useMediaQuery(query) {
@@ -120,25 +119,21 @@ export default function App() {
       const { num, text } = lesson.label
       name = num ? `№${num} ${text}` : text
     }
-    document.title = name ? `${name} · Ответы LXP` : 'Ответы · LXP'
-  }, [lesson, discipline])
+    document.title = selected === CHAT ? 'Чат · LXP AI' : name ? `${name} · Ответы LXP` : 'Ответы · LXP'
+  }, [lesson, discipline, selected])
 
   return (
     <>
       <div className="bg" aria-hidden="true">
         <div className="bg-aurora" />
-        <div className="bg-grid" />
-        <div className="bg-particles">
+        <div className="bg-lines">
           <Suspense fallback={null}>
-            {/* при «уменьшить движение» кольцо не блуждает само, а только следует за курсором */}
-            <Antigravity
-              {...PARTICLES[compact ? 'compact' : 'wide']}
-              colors={PARTICLE_COLORS}
-              autoAnimate={!reduceMotion}
-              particleSize={1.6}
-              dpr={[1, 1.5]}
-              eventSource={document.body}
-              eventPrefix="client"
+            <FloatingLines
+              linesGradient={LINE_GRADIENT}
+              lineCount={compact ? [4] : [6]}
+              animationSpeed={reduceMotion ? 0.35 : 1}
+              parallax={!compact}
+              backgroundColor="#07080d"
             />
           </Suspense>
         </div>
@@ -170,7 +165,11 @@ export default function App() {
 
           <main className="main">
             <div className="main-inner">
-              {lesson ? (
+              {selected === CHAT ? (
+                <Suspense fallback={<div className="chat-loading" aria-busy="true" />}>
+                  <ChatView />
+                </Suspense>
+              ) : lesson ? (
                 <LessonView key={lesson.value} lesson={lesson} prev={prev} next={next} onSelect={select} />
               ) : (
                 <SoonView key={selected} discipline={discipline} onOpenReady={() => select(DEFAULT_VALUE)} />

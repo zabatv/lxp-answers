@@ -45,17 +45,21 @@ src/
     highlight.js              подсветка синтаксиса (highlight.js)
     files.js                  скачивание файла / всех файлов задания (.zip)
     preview.js                сборка HTML для запуска: подстановка style.css, защита ссылок
-    deepseek.js               клиент прокси DeepSeek
+    deepseek.js               клиент прокси LXP AI (правка кода и чат)
   components/
     Sidebar.jsx               логотип, поиск, дерево дисциплин, прогресс
     LessonView.jsx            страница задания: условие, пометка, файлы, «Назад/Далее»
     SoonView.jsx              заглушка «в разработке»
-    CodeBlock.jsx             блок кода: подсветка, копирование, скачивание, запуск, DeepSeek
+    CodeBlock.jsx             блок кода: подсветка, копирование, скачивание, запуск, LXP AI
+    ChatView.jsx              вкладка «Чат с LXP AI» (#/chat)
+    LoginGate.jsx             вход по логину и паролю
     HtmlPreview.jsx           «окно браузера» с запущенным HTML (компьютер / телефон)
     reactbits/                компоненты ReactBits
-      Antigravity.jsx         фон из частиц (three.js, грузится отдельно)
+      FloatingLines.jsx       фон из линий (three.js, грузится отдельно)
+      PromptBar.jsx           поле ввода чата
+      StatusMark.jsx          статус ответа LXP AI
       BranchedMenu.jsx        дерево дисциплин и заданий
-      ThoughtLine.jsx         «DeepSeek думает…»
+      ThoughtLine.jsx         «LXP AI думает…»
       LatticeLoader.jsx       анимация на заглушке
       GradientText.jsx, ShinyText.jsx, SpotlightCard.jsx
 ```

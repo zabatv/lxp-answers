@@ -15,6 +15,7 @@ import { highlight, langMeta } from '../lib/highlight.js'
 import { buildPreview } from '../lib/preview.js'
 import HtmlPreview from './HtmlPreview.jsx'
 import Icon from './Icon.jsx'
+import AiIcon from './AiIcon.jsx'
 import ThoughtLine from './reactbits/ThoughtLine.jsx'
 
 const THINK_STEPS = [
@@ -26,24 +27,10 @@ const THINK_STEPS = [
   'Финализирую ответ',
 ]
 
-function DeepSeekIcon() {
-  // стилизованный «кит» DeepSeek
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M3 13c3 0 4-2 7-2 2.5 0 4 1.5 6.5 1.5 1.6 0 2.7-.6 3.5-1.5-.3 3.5-3.2 6-7.5 6-4 0-6.7-1.8-9.5-4z"
-        fill="#4D6BFE"
-      />
-      <circle cx="16.5" cy="10.5" r="1.1" fill="#fff" />
-      <path d="M11 8c1.5-2 4-2.5 6-1.5" stroke="#4D6BFE" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-// code — текущий текст файла (с правками DeepSeek), original — исходный из ответа.
+// code — текущий текст файла (с правками LXP AI), original — исходный из ответа.
 // files — все файлы задания: HTML запускается вместе со своим style.css.
 // unique — какие данные в решении уникальные (вариант, условие от преподавателя…);
-// context — условие задания и пометки: уходят в DeepSeek вместе с просьбой.
+// context — условие задания и пометки: уходят в LXP AI вместе с просьбой.
 export default function CodeBlock({ name, lang, code, original, onChange, files, unique, context }) {
   const [copied, setCopied] = useState(false)
   const [panel, setPanel] = useState(false)
@@ -130,7 +117,7 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
               свои данные
             </span>
           )}
-          {changed && <span className="code-edited" title="Код изменён через DeepSeek">изменён</span>}
+          {changed && <span className="code-edited" title="Код изменён через LXP AI">изменён</span>}
         </div>
         <div className="code-actions">
           {runnable && (
@@ -150,12 +137,12 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
             type="button"
             className="btn btn-ds"
             aria-expanded={panel}
-            aria-label="Изменить ответ через DeepSeek"
-            title="Изменить ответ через DeepSeek"
+            aria-label="Изменить ответ через LXP AI"
+            title="Изменить ответ через LXP AI"
             onClick={() => setPanel((v) => !v)}
           >
-            <DeepSeekIcon />
-            <span className="btn-text">DeepSeek</span>
+            <AiIcon />
+            <span className="btn-text">LXP AI</span>
           </button>
           {changed && (
             <button
@@ -206,14 +193,14 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
         <div className="ds-panel">
           <div className="ds-top">
             <span className="ds-title">
-              <DeepSeekIcon />
+              <AiIcon />
               Что изменить в коде?
             </span>
             <label className="ds-model">
               <span>Модель</span>
               <select className="select" value={model} onChange={(e) => setModelState(e.target.value)}>
-                <option value={DEFAULT_MODEL}>deepseek-chat</option>
-                <option value="deepseek-reasoner">deepseek-reasoner</option>
+                <option value={DEFAULT_MODEL}>LXP AI</option>
+                <option value="deepseek-reasoner">LXP AI Думающая</option>
               </select>
             </label>
           </div>
@@ -224,7 +211,7 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
             onKeyDown={onPromptKey}
             placeholder={
               unique
-                ? 'Впиши свои данные, напр.: «мой вариант: …» — DeepSeek пересчитает решение тем же методом'
+                ? 'Впиши свои данные, напр.: «мой вариант: …» — LXP AI пересчитает решение тем же методом'
                 : 'Напр.: добавь комментарии; перепиши под .NET 6; упрости; найди ошибку'
             }
             rows={3}
@@ -239,7 +226,7 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
           {busy && (
             <div className="ds-thinking">
               <ThoughtLine
-                label="DeepSeek думает…"
+                label="LXP AI думает…"
                 doneLabel="Готово за"
                 steps={steps}
                 working

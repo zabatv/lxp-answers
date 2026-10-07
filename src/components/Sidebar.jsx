@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Cancel01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { disciplines } from '../data/disciplines.js'
 import {
+  CHAT,
   lessons,
   menuLabels,
   plural,
@@ -10,27 +11,14 @@ import {
   searchLessons,
   soonDisciplines,
 } from '../lib/lessons.js'
+import AiIcon from './AiIcon.jsx'
 import Icon from './Icon.jsx'
-import Logo from './Logo.jsx'
 import BranchedMenu from './reactbits/BranchedMenu.jsx'
-import GradientText from './reactbits/GradientText.jsx'
-import ShinyText from './reactbits/ShinyText.jsx'
 
-const BRAND_GRADIENT = ['#8b7bff', '#4cc9f0', '#45e6b0', '#4cc9f0', '#8b7bff']
+import { Brand } from './Brand.jsx'
+import { logout } from './LoginGate.jsx'
 
-export function Brand({ compact = false }) {
-  return (
-    <div className={`brand${compact ? ' brand--compact' : ''}`}>
-      <Logo className="brand-mark" size={compact ? 30 : 38} />
-      <div className="brand-text">
-        <div className="brand-name">
-          <GradientText colors={BRAND_GRADIENT} animationSpeed={8}>LXP</GradientText> Ответы
-        </div>
-        {!compact && <ShinyText className="brand-sub" text="IThub · 2ИТП1.9.25" speed={5} />}
-      </div>
-    </div>
-  )
-}
+export { Brand }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -159,6 +147,21 @@ export default function Sidebar({ selected, onSelect, query, onQuery, searchRef,
         </label>
       </div>
 
+      <button
+        type="button"
+        className="side-chat"
+        aria-current={selected === CHAT ? 'page' : undefined}
+        onClick={() => onSelect(CHAT)}
+      >
+        <span className="side-chat-icon">
+          <AiIcon size={17} />
+        </span>
+        <span className="side-chat-text">
+          <span>Чат с LXP AI</span>
+          <small>Спроси по любой дисциплине</small>
+        </span>
+      </button>
+
       <div className="side-scroll" ref={scrollRef}>
         {searching ? (
           <div className="results">
@@ -245,6 +248,9 @@ export default function Sidebar({ selected, onSelect, query, onQuery, searchRef,
         <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <span style={{ width: `${pct}%` }} />
         </div>
+        <button type="button" className="side-logout" onClick={logout}>
+          Выйти
+        </button>
       </div>
     </aside>
   )
