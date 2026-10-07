@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircleIcon, Copy01Icon, Tick02Icon, Undo02Icon } from '@hugeicons/core-free-icons'
+import {
+  AlertCircleIcon,
+  Copy01Icon,
+  Download04Icon,
+  PlayIcon,
+  StopIcon,
+  Tick02Icon,
+  Undo02Icon,
+} from '@hugeicons/core-free-icons'
 import { getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
+import { downloadFile } from '../lib/files.js'
 import { highlight, langMeta } from '../lib/highlight.js'
+import { buildPreview } from '../lib/preview.js'
+import HtmlPreview from './HtmlPreview.jsx'
 import Icon from './Icon.jsx'
 import ThoughtLine from './reactbits/ThoughtLine.jsx'
 
@@ -28,10 +39,12 @@ function DeepSeekIcon() {
   )
 }
 
-export default function CodeBlock({ name, lang, code }) {
-  const [current, setCurrent] = useState(code)
+// code — текущий текст файла (с правками DeepSeek), original — исходный из ответа.
+// files — все файлы задания: HTML запускается вместе со своим style.css.
+export default function CodeBlock({ name, lang, code, original, onChange, files }) {
   const [copied, setCopied] = useState(false)
   const [panel, setPanel] = useState(false)
+  const [running, setRunning] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [model, setModelState] = useState(getModel())
   const [busy, setBusy] = useState(false)
@@ -45,15 +58,20 @@ export default function CodeBlock({ name, lang, code }) {
     clearTimeout(copyTimer.current)
   }, [])
 
-  const changed = current !== code
-  const text = current.replace(/\n$/, '')
+  const changed = code !== original
+  const runnable = lang === 'html'
+  const text = code.replace(/\n$/, '')
   const lineCount = text.split('\n').length
   const html = useMemo(() => highlight(text, lang), [text, lang])
+  const previewDoc = useMemo(
+    () => (runnable && running ? buildPreview(code, files || []) : ''),
+    [runnable, running, code, files]
+  )
   const meta = langMeta(lang)
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(current)
+      await navigator.clipboard.writeText(code)
       setCopied(true)
       clearTimeout(copyTimer.current)
       copyTimer.current = setTimeout(() => setCopied(false), 1600)
@@ -76,8 +94,8 @@ export default function CodeBlock({ name, lang, code }) {
       }
     }, Math.floor(2000 / THINK_STEPS.length))
     try {
-      const out = await refineCode({ code: current, lang, instruction: prompt, model })
-      if (out) setCurrent(out)
+      const out = await refineCode({ code, lang, instruction: prompt, model })
+      if (out) onChange(out)
       setPrompt('')
       setPanel(false)
     } catch (e) {
@@ -105,6 +123,19 @@ export default function CodeBlock({ name, lang, code }) {
           {changed && <span className="code-edited" title="Код изменён через DeepSeek">изменён</span>}
         </div>
         <div className="code-actions">
+          {runnable && (
+            <button
+              type="button"
+              className="btn btn-run"
+              aria-pressed={running}
+              aria-label={running ? 'Остановить' : 'Запустить HTML'}
+              title={running ? 'Скрыть результат' : 'Запустить HTML прямо здесь'}
+              onClick={() => setRunning((v) => !v)}
+            >
+              <Icon icon={running ? StopIcon : PlayIcon} size={15} />
+              <span className="btn-text">{running ? 'Остановить' : 'Запустить'}</span>
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-ds"
@@ -122,12 +153,22 @@ export default function CodeBlock({ name, lang, code }) {
               className="btn"
               aria-label="Вернуть исходный код"
               title="Вернуть исходный код"
-              onClick={() => setCurrent(code)}
+              onClick={() => onChange(original)}
             >
               <Icon icon={Undo02Icon} size={15} />
               <span className="btn-text">Оригинал</span>
             </button>
           )}
+          <button
+            type="button"
+            className="btn"
+            aria-label={`Скачать ${name}`}
+            title={`Скачать ${name}`}
+            onClick={() => downloadFile(name, code)}
+          >
+            <Icon icon={Download04Icon} size={15} />
+            <span className="btn-text">Скачать</span>
+          </button>
           <button
             type="button"
             className="btn"
@@ -199,6 +240,8 @@ export default function CodeBlock({ name, lang, code }) {
           </div>
         </div>
       )}
+
+      {running && <HtmlPreview doc={previewDoc} name={name} />}
 
       <div className="code-body">
         <pre className="code-gutter" aria-hidden="true">

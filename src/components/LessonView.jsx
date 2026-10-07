@@ -1,11 +1,14 @@
+import { useMemo, useState } from 'react'
 import {
   Alert02Icon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  Download04Icon,
   File02Icon,
   StarIcon,
   Task01Icon,
 } from '@hugeicons/core-free-icons'
+import { archiveName, downloadZip } from '../lib/files.js'
 import { langMeta } from '../lib/highlight.js'
 import { menuLabel, plural } from '../lib/lessons.js'
 import CodeBlock from './CodeBlock.jsx'
@@ -41,6 +44,14 @@ function PagerCard({ lesson, dir, current, onSelect }) {
 export default function LessonView({ lesson, prev, next, onSelect }) {
   const { d, a, index, total } = lesson
   const langs = [...new Set(a.files.map((f) => langMeta(f.lang).label))]
+
+  // текущий текст файлов (с правками DeepSeek) — его скачивают и запускают
+  const [edits, setEdits] = useState({})
+  const files = useMemo(
+    () => a.files.map((f) => (f.name in edits ? { ...f, code: edits[f.name] } : f)),
+    [a.files, edits]
+  )
+  const setFile = (name, code) => setEdits((prev) => ({ ...prev, [name]: code }))
 
   return (
     <article className="lesson">
@@ -101,12 +112,34 @@ export default function LessonView({ lesson, prev, next, onSelect }) {
       )}
 
       <section className="files" aria-label="Решение">
-        <div className="section-label">
-          Решение
-          <span className="count">{a.files.length}</span>
+        <div className="files-head">
+          <div className="section-label">
+            Решение
+            <span className="count">{files.length}</span>
+          </div>
+          {files.length > 1 && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              title="Скачать все файлы задания одним архивом"
+              onClick={() => downloadZip(archiveName(a.title), files)}
+            >
+              <Icon icon={Download04Icon} size={15} />
+              Скачать всё
+              <span className="btn-note">.zip</span>
+            </button>
+          )}
         </div>
-        {a.files.map((f) => (
-          <CodeBlock key={f.name} name={f.name} lang={f.lang} code={f.code} />
+        {files.map((f, i) => (
+          <CodeBlock
+            key={f.name}
+            name={f.name}
+            lang={f.lang}
+            code={f.code}
+            original={a.files[i].code}
+            onChange={(code) => setFile(f.name, code)}
+            files={files}
+          />
         ))}
       </section>
 
