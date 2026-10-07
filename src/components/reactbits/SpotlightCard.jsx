@@ -1,10 +1,13 @@
 import { useRef } from 'react'
 
 // ReactBits "Spotlight Card" — radial glow follows the cursor.
+// `as` — тег обёртки (например, 'button'), остальные пропсы уходят на него.
 export default function SpotlightCard({
   children,
   className = '',
-  spotlightColor = 'rgba(124,123,255,0.22)',
+  spotlightColor = 'rgba(139,123,255,0.18)',
+  as: Tag = 'div',
+  ...rest
 }) {
   const ref = useRef(null)
 
@@ -18,8 +21,8 @@ export default function SpotlightCard({
   }
 
   return (
-    <div ref={ref} onMouseMove={onMove} className={`spotlight-card ${className}`}>
+    <Tag ref={ref} onMouseMove={onMove} className={`spotlight-card ${className}`} {...rest}>
       {children}
-    </div>
+    </Tag>
   )
 }

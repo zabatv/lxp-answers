@@ -1,0 +1,119 @@
+import {
+  Alert02Icon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  File02Icon,
+  StarIcon,
+  Task01Icon,
+} from '@hugeicons/core-free-icons'
+import { langMeta } from '../lib/highlight.js'
+import { menuLabel, plural } from '../lib/lessons.js'
+import CodeBlock from './CodeBlock.jsx'
+import Icon from './Icon.jsx'
+import SpotlightCard from './reactbits/SpotlightCard.jsx'
+
+function PagerCard({ lesson, dir, current, onSelect }) {
+  if (!lesson) return <span className="pager-spacer" />
+  const { num, text } = menuLabel(lesson.a.title)
+  const otherDiscipline = lesson.d.id !== current.d.id
+  return (
+    <SpotlightCard
+      as="button"
+      type="button"
+      className={`pager-card pager-card--${dir}`}
+      onClick={() => onSelect(lesson.value)}
+      title={lesson.a.title}
+    >
+      <span className="pager-dir">
+        {dir === 'prev' && <Icon icon={ArrowLeft01Icon} size={14} />}
+        {dir === 'prev' ? 'Назад' : 'Далее'}
+        {dir === 'next' && <Icon icon={ArrowRight01Icon} size={14} />}
+      </span>
+      <span className="pager-title">
+        {num && <span className="pager-num">№{num}</span>}
+        {text}
+      </span>
+      {otherDiscipline && <span className="pager-disc">{lesson.d.name}</span>}
+    </SpotlightCard>
+  )
+}
+
+export default function LessonView({ lesson, prev, next, onSelect }) {
+  const { d, a, index, total } = lesson
+  const langs = [...new Set(a.files.map((f) => langMeta(f.lang).label))]
+
+  return (
+    <article className="lesson">
+      <header className="lesson-head">
+        <div className="crumbs">
+          <span className="crumb-disc">{d.name}</span>
+          {d.teacher && (
+            <>
+              <span className="crumb-sep" aria-hidden="true">/</span>
+              <span>{d.teacher}</span>
+            </>
+          )}
+          <span className="crumb-pos">
+            Задание {index + 1} из {total}
+          </span>
+        </div>
+
+        <h1 className="lesson-title">{a.title}</h1>
+
+        <div className="chips">
+          {a.points != null && (
+            <span className="chip chip--points">
+              <Icon icon={StarIcon} size={14} />
+              {a.points} {plural(a.points, ['балл', 'балла', 'баллов'])}
+            </span>
+          )}
+          <span className="chip">
+            <Icon icon={File02Icon} size={14} />
+            {a.files.length} {plural(a.files.length, ['файл', 'файла', 'файлов'])} · {langs.join(', ')}
+          </span>
+          {a.note && (
+            <span className="chip chip--todo">
+              <Icon icon={Alert02Icon} size={14} />
+              Нужно доделать
+            </span>
+          )}
+        </div>
+      </header>
+
+      {a.task && (
+        <SpotlightCard className="task-card">
+          <div className="section-label">
+            <Icon icon={Task01Icon} size={14} />
+            Задание
+          </div>
+          <p className="task-text">{a.task}</p>
+        </SpotlightCard>
+      )}
+
+      {a.note && (
+        <div className="callout" role="note">
+          <Icon icon={Alert02Icon} size={18} />
+          <div>
+            <strong>Что доделать</strong>
+            <p>{a.note}</p>
+          </div>
+        </div>
+      )}
+
+      <section className="files" aria-label="Решение">
+        <div className="section-label">
+          Решение
+          <span className="count">{a.files.length}</span>
+        </div>
+        {a.files.map((f) => (
+          <CodeBlock key={f.name} name={f.name} lang={f.lang} code={f.code} />
+        ))}
+      </section>
+
+      <nav className="pager" aria-label="Соседние задания">
+        <PagerCard lesson={prev} dir="prev" current={lesson} onSelect={onSelect} />
+        <PagerCard lesson={next} dir="next" current={lesson} onSelect={onSelect} />
+      </nav>
+    </article>
+  )
+}

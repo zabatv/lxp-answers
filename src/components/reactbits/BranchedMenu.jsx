@@ -2,7 +2,9 @@
 
 // На основе ReactBits BranchedMenu. Убрана зависимость от @hugeicons:
 // иконки передаются как React-элементы (необязательны).
-import { isValidElement, useLayoutEffect, useRef, useState } from 'react';
+// Дополнено: управляемый `active` (раздел с ним раскрывается сам),
+// `meta` у раздела (счётчик справа), шеврон и `title` (подсказка) у пунктов.
+import { isValidElement, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './BranchedMenu.css';
 
 const DEFAULT_ITEMS = [
@@ -35,6 +37,7 @@ export default function BranchedMenu({
   items = DEFAULT_ITEMS,
   defaultOpen = 0,
   defaultActive = '',
+  active: activeProp,
   onSelect,
   onToggle,
   color = '#f5f5f5',
@@ -52,11 +55,12 @@ export default function BranchedMenu({
   className = ''
 }) {
   const [open, setOpen] = useState(() => toSet(defaultOpen));
-  const [active, setActive] = useState(() => {
+  const [activeState, setActive] = useState(() => {
     if (defaultActive) return defaultActive;
     const first = items.find((it, i) => it.children && toSet(defaultOpen).has(i));
     return first?.children?.[0]?.value ?? '';
   });
+  const active = activeProp !== undefined ? activeProp : activeState;
   const navRef = useRef(null);
   const heads = useRef([]);
   const markerRef = useRef(null);
@@ -65,6 +69,11 @@ export default function BranchedMenu({
 
   const activeSection = items.findIndex(it => it.children?.some(kid => kid.value === active));
   const markerShown = activeSection >= 0 && open.has(activeSection);
+  // пункт выбрали снаружи (поиск, «Далее») — раскрываем его раздел
+  useEffect(() => {
+    if (activeSection < 0) return;
+    setOpen(prev => (prev.has(activeSection) ? prev : new Set(prev).add(activeSection)));
+  }, [activeSection, active]);
   useLayoutEffect(() => {
     const place = glide => {
       const m = markerRef.current;
@@ -150,9 +159,16 @@ export default function BranchedMenu({
               aria-current={leafActive ? 'true' : undefined}
               data-active={leafActive ? '' : undefined}
               data-leaf={kids ? undefined : ''}
+              title={item.title}
               onClick={() => (kids ? toggle(i) : select(leafValue, item))}
             >
-              {item.label}
+              <span className="branched-menu__head-label">{item.label}</span>
+              {item.meta != null ? <span className="branched-menu__meta">{item.meta}</span> : null}
+              {kids ? (
+                <svg className="branched-menu__chevron" viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="m4.5 6.5 3.5 3.5 3.5-3.5" />
+                </svg>
+              ) : null}
             </button>
             {kids ? (
               <div className="branched-menu__body">
@@ -183,6 +199,7 @@ export default function BranchedMenu({
                         aria-current={kid.value === active ? 'true' : undefined}
                         data-active={kid.value === active ? '' : undefined}
                         tabIndex={isOpen ? 0 : -1}
+                        title={kid.title}
                         onClick={() => select(kid.value, kid)}
                       >
                         {kid.icon ? (

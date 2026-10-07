@@ -1,7 +1,10 @@
 # LXP — Ответы по дисциплинам
 
 React + Vite сайт с готовыми ответами по дисциплинам (ReactBits-компоненты).
-Вкладки заведены под все 14 дисциплин; заполнена «XML технологии», остальные — заглушки «в разработке».
+Заведены все 14 дисциплин; заполнены «XML технологии», «ООП на C#» и «Основы HTML/CSS»,
+остальные — заглушки «в разработке».
+
+Поиск по заданиям — `/` или `Ctrl+K`. У каждого задания своя ссылка вида `#/oop/oop12`.
 
 ## Локально
 
@@ -30,13 +33,22 @@ npm run preview  # предпросмотр сборки
 
 ```
 src/
-  App.jsx                     вкладки + рендер ответов
-  data/disciplines.js         список дисциплин и ответы
+  App.jsx                     каркас: фон, боковая панель, урок, ссылки и горячие клавиши
+  index.css                   оформление (цвета — переменные в :root)
+  data/                       дисциплины и ответы (disciplines.js, oop.js, htmlcss.js)
+  lib/
+    lessons.js                плоский список уроков, поиск, подписи меню, ссылки
+    highlight.js              подсветка синтаксиса (highlight.js)
+    deepseek.js               клиент прокси DeepSeek
   components/
-    CodeBlock.jsx             блок кода с копированием
+    Sidebar.jsx               логотип, поиск, дерево дисциплин, прогресс
+    LessonView.jsx            страница задания: условие, пометка, файлы, «Назад/Далее»
+    SoonView.jsx              заглушка «в разработке»
+    CodeBlock.jsx             блок кода: подсветка, копирование, правка через DeepSeek
     reactbits/                компоненты ReactBits
-      Squares.jsx             анимированный фон
-      GradientText.jsx
-      ShinyText.jsx
-      SpotlightCard.jsx
+      Antigravity.jsx         фон из частиц (three.js, грузится отдельно)
+      BranchedMenu.jsx        дерево дисциплин и заданий
+      ThoughtLine.jsx         «DeepSeek думает…»
+      LatticeLoader.jsx       анимация на заглушке
+      GradientText.jsx, ShinyText.jsx, SpotlightCard.jsx
 ```

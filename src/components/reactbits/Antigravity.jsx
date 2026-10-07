@@ -2,9 +2,11 @@
 
 /* eslint-disable react/no-unknown-property */
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 
+// Дополнено: `colors` — палитра, каждая частица получает свой цвет;
+// пропсы Canvas (dpr, eventSource, eventPrefix) пробрасываются наружу.
 const AntigravityInner = ({
   count = 300,
   magnetRadius = 10,
@@ -14,6 +16,7 @@ const AntigravityInner = ({
   particleSize = 2,
   lerpSpeed = 0.1,
   color = '#FF9FFC',
+  colors,
   autoAnimate = false,
   particleVariance = 1,
   rotationSpeed = 0,
@@ -29,6 +32,19 @@ const AntigravityInner = ({
   const lastMousePos = useRef({ x: 0, y: 0 });
   const lastMouseMoveTime = useRef(0);
   const virtualMouse = useRef({ x: 0, y: 0 });
+
+  const palette = colors && colors.length ? colors : null;
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh || !palette) return;
+    const c = new THREE.Color();
+    for (let i = 0; i < count; i++) {
+      c.set(palette[i % palette.length]);
+      mesh.setColorAt(i, c);
+    }
+    mesh.instanceColor.needsUpdate = true;
+    mesh.material.needsUpdate = true;
+  }, [count, palette]);
 
   const particles = useMemo(() => {
     const temp = [];
@@ -165,14 +181,14 @@ const AntigravityInner = ({
       {particleShape === 'sphere' && <sphereGeometry args={[0.2, 16, 16]} />}
       {particleShape === 'box' && <boxGeometry args={[0.3, 0.3, 0.3]} />}
       {particleShape === 'tetrahedron' && <tetrahedronGeometry args={[0.3]} />}
-      <meshBasicMaterial color={color} />
+      <meshBasicMaterial color={palette ? '#ffffff' : color} />
     </instancedMesh>
   );
 };
 
-const Antigravity = props => {
+const Antigravity = ({ dpr, eventSource, eventPrefix, ...props }) => {
   return (
-    <Canvas camera={{ position: [0, 0, 50], fov: 35 }}>
+    <Canvas camera={{ position: [0, 0, 50], fov: 35 }} dpr={dpr} eventSource={eventSource} eventPrefix={eventPrefix}>
       <AntigravityInner {...props} />
     </Canvas>
   );

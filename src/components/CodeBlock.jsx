@@ -1,5 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertCircleIcon, Copy01Icon, Tick02Icon, Undo02Icon } from '@hugeicons/core-free-icons'
 import { getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
+import { highlight, langMeta } from '../lib/highlight.js'
+import Icon from './Icon.jsx'
 import ThoughtLine from './reactbits/ThoughtLine.jsx'
 
 const THINK_STEPS = [
@@ -35,15 +38,25 @@ export default function CodeBlock({ name, lang, code }) {
   const [err, setErr] = useState('')
   const [steps, setSteps] = useState([])
   const stepTimer = useRef(null)
+  const copyTimer = useRef(null)
+
+  useEffect(() => () => {
+    clearInterval(stepTimer.current)
+    clearTimeout(copyTimer.current)
+  }, [])
 
   const changed = current !== code
-  const lines = current.replace(/\n$/, '').split('\n')
+  const text = current.replace(/\n$/, '')
+  const lineCount = text.split('\n').length
+  const html = useMemo(() => highlight(text, lang), [text, lang])
+  const meta = langMeta(lang)
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(current)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 1600)
     } catch { /* clipboard недоступен */ }
   }
 
@@ -76,48 +89,89 @@ export default function CodeBlock({ name, lang, code }) {
     }
   }
 
+  const onPromptKey = (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      if (!busy) apply()
+    }
+  }
+
   return (
     <div className="code-block">
       <div className="code-head">
         <div className="code-file">
-          <span className="code-dot" />
-          <span className="code-name">{name}</span>
-          {lang && <span className="code-lang">{lang}</span>}
-          {changed && <span className="code-edited" title="Код изменён через DeepSeek">● DeepSeek</span>}
+          <span className="lang-badge" style={{ '--lang': meta.color }}>{meta.label}</span>
+          <span className="code-name" title={name}>{name}</span>
+          {changed && <span className="code-edited" title="Код изменён через DeepSeek">изменён</span>}
         </div>
         <div className="code-actions">
-          <button className="code-ds" onClick={() => setPanel((v) => !v)} title="Изменить ответ через DeepSeek">
+          <button
+            type="button"
+            className="btn btn-ds"
+            aria-expanded={panel}
+            aria-label="Изменить ответ через DeepSeek"
+            title="Изменить ответ через DeepSeek"
+            onClick={() => setPanel((v) => !v)}
+          >
             <DeepSeekIcon />
-            DeepSeek
+            <span className="btn-text">DeepSeek</span>
           </button>
           {changed && (
-            <button className="code-copy" onClick={() => setCurrent(code)} title="Вернуть исходный код">
-              Оригинал
+            <button
+              type="button"
+              className="btn"
+              aria-label="Вернуть исходный код"
+              title="Вернуть исходный код"
+              onClick={() => setCurrent(code)}
+            >
+              <Icon icon={Undo02Icon} size={15} />
+              <span className="btn-text">Оригинал</span>
             </button>
           )}
-          <button className="code-copy" onClick={copy}>
-            {copied ? '✓ Скопировано' : 'Копировать'}
+          <button
+            type="button"
+            className="btn"
+            data-copied={copied ? '' : undefined}
+            aria-label={copied ? 'Скопировано' : 'Скопировать код'}
+            title="Скопировать код"
+            onClick={copy}
+          >
+            <Icon icon={copied ? Tick02Icon : Copy01Icon} size={15} />
+            <span className="btn-text">{copied ? 'Скопировано' : 'Копировать'}</span>
           </button>
         </div>
       </div>
 
       {panel && (
         <div className="ds-panel">
-          <div className="ds-field">
-            <span className="ds-hint">Модель DeepSeek</span>
-            <select className="ds-select" value={model} onChange={(e) => setModelState(e.target.value)}>
-              <option value={DEFAULT_MODEL}>deepseek-chat</option>
-              <option value="deepseek-reasoner">deepseek-reasoner</option>
-            </select>
+          <div className="ds-top">
+            <span className="ds-title">
+              <DeepSeekIcon />
+              Что изменить в коде?
+            </span>
+            <label className="ds-model">
+              <span>Модель</span>
+              <select className="select" value={model} onChange={(e) => setModelState(e.target.value)}>
+                <option value={DEFAULT_MODEL}>deepseek-chat</option>
+                <option value="deepseek-reasoner">deepseek-reasoner</option>
+              </select>
+            </label>
           </div>
           <textarea
-            className="ds-textarea"
+            className="textarea"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Что изменить в коде? Напр.: добавь комментарии; перепиши под .NET 6; упрости; найди ошибку"
+            onKeyDown={onPromptKey}
+            placeholder="Напр.: добавь комментарии; перепиши под .NET 6; упрости; найди ошибку"
             rows={3}
+            autoFocus
           />
-          {err && <div className="ds-err">{err}</div>}
+          {err && (
+            <div className="ds-err">
+              <Icon icon={AlertCircleIcon} size={15} />
+              <span>{err}</span>
+            </div>
+          )}
           {busy && (
             <div className="ds-thinking">
               <ThoughtLine
@@ -127,30 +181,33 @@ export default function CodeBlock({ name, lang, code }) {
                 working
                 collapsible
                 color="var(--fg)"
-                glyphColor="#7f97ff"
+                glyphColor="#8fa2ff"
                 fontSize={14}
               />
             </div>
           )}
           <div className="ds-row">
-            <button className="ds-apply" onClick={apply} disabled={busy}>
+            <button type="button" className="btn btn-primary" onClick={apply} disabled={busy}>
               {busy ? 'Думаю…' : 'Применить'}
             </button>
-            <button className="ds-cancel" onClick={() => setPanel(false)} disabled={busy}>
+            <button type="button" className="btn" onClick={() => setPanel(false)} disabled={busy}>
               Отмена
             </button>
+            <span className="ds-hint">
+              <kbd className="kbd">Ctrl</kbd> + <kbd className="kbd">Enter</kbd>
+            </span>
           </div>
         </div>
       )}
 
       <div className="code-body">
         <pre className="code-gutter" aria-hidden="true">
-          {lines.map((_, i) => (
+          {Array.from({ length: lineCount }, (_, i) => (
             <span key={i}>{i + 1}</span>
           ))}
         </pre>
         <pre className="code-pre">
-          <code>{lines.join('\n')}</code>
+          <code dangerouslySetInnerHTML={{ __html: html }} />
         </pre>
       </div>
     </div>
