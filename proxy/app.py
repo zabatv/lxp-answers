@@ -84,17 +84,32 @@ def generate(code, lang, instruction, model):
 
 
 def deepseek_status():
-    # прямой запрос, чтобы показать настоящий ответ DeepSeek (code/msg), а не падение opendeep
-    try:
-        gm = _od.GenerativeModel("deepseek-chat")
-        r = gm.session.post(_od.config.base_url + "/chat_session/create", headers=gm._get_headers(), json={"character_id": None})
+    # прямые запросы, чтобы показать настоящий ответ DeepSeek (code/msg), а не падение opendeep
+    from opendeep.config import config as od_config
+
+    def short(r):
         try:
             d = r.json()
-            return f"HTTP {r.status_code}, code {d.get('code')}: {d.get('msg')}"
+            biz = (d.get("data") or {}).get("biz_data") if isinstance(d.get("data"), dict) else None
+            return f"HTTP {r.status_code}, code {d.get('code')}, msg {d.get('msg')!r}, biz {'есть' if biz else 'нет'}"
         except Exception:  # noqa: BLE001
-            return f"HTTP {r.status_code}: {r.text[:200]}"
+            return f"HTTP {r.status_code}: {r.text[:160]}"
+
+    out = []
+    try:
+        gm = _od.GenerativeModel("deepseek-chat")
+        h = gm._get_headers()
+        r = gm.session.post(od_config.base_url + "/chat_session/create", headers=h, json={"character_id": None})
+        out.append("сессия: " + short(r))
+        r = gm.session.post(
+            od_config.base_url + "/chat/create_pow_challenge",
+            headers=h,
+            json={"target_path": "/api/v0/chat/completion"},
+        )
+        out.append("pow: " + short(r))
     except Exception as exc:  # noqa: BLE001
-        return f"{type(exc).__name__}: {exc}"
+        out.append(f"{type(exc).__name__}: {exc}")
+    return "; ".join(out)
 
 
 def explain(exc):
