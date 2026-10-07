@@ -5,6 +5,7 @@
 (CORS + proof-of-work), поэтому запросы идут сюда. Токен chat.deepseek.com
 хранится здесь в переменной окружения DEEPSEEK_API_KEY и в браузер не попадает.
 """
+import hashlib
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -140,7 +141,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        self._json(200, {"ok": True, "tokenSet": bool(TOKEN), "tokenLength": len(TOKEN)})
+        self._json(200, {"ok": True, "tokenSet": bool(TOKEN), "tokenLength": len(TOKEN),
+                         "tokenHash": hashlib.sha256(TOKEN.encode()).hexdigest()[:12]})
 
     def do_POST(self):
         path = self.path.rstrip("/")
