@@ -16,7 +16,7 @@ proof-of-work). Токен хранится в переменной окруже
 
 | Переменная | Где взять ключ | Модель по умолчанию (`*_MODEL` — заменить) |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | aistudio.google.com → Get API key | `gemini-2.5-flash` |
+| `GEMINI_API_KEY` | aistudio.google.com → Get API key | `gemini-3.8-flash` |
 | `GROQ_API_KEY` | console.groq.com → API Keys | `llama-3.3-70b-versatile` |
 | `OPENROUTER_API_KEY` | openrouter.ai → Keys | `meta-llama/llama-3.3-70b-instruct:free` |
 
