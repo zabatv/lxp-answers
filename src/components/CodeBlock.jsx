@@ -9,7 +9,7 @@ import {
   Undo02Icon,
   UserEdit01Icon,
 } from '@hugeicons/core-free-icons'
-import { refineCode } from '../lib/ai.js'
+import { getModels, refineCode, saveModel, savedModel } from '../lib/ai.js'
 import { downloadFile } from '../lib/files.js'
 import { highlight, langMeta } from '../lib/highlight.js'
 import { buildPreview } from '../lib/preview.js'
@@ -37,6 +37,22 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
   const [running, setRunning] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
+  const [models, setModels] = useState([])
+  const [model, setModel] = useState(savedModel)
+
+  // список моделей подгружаем, только когда открыли панель LXP AI
+  useEffect(() => {
+    if (!panel) return undefined
+    let alive = true
+    getModels().then((list) => {
+      if (!alive) return
+      setModels(list)
+      setModel((cur) => (list.some((m) => m.id === cur) ? cur : list[0]?.id || ''))
+    })
+    return () => {
+      alive = false
+    }
+  }, [panel])
   const [err, setErr] = useState('')
   const [steps, setSteps] = useState([])
   const stepTimer = useRef(null)
@@ -84,7 +100,8 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
       }
     }, Math.floor(2000 / THINK_STEPS.length))
     try {
-      const out = await refineCode({ code, lang, instruction: prompt, context })
+      if (model) saveModel(model)
+      const out = await refineCode({ code, lang, instruction: prompt, context, model })
       if (out) onChange(out)
       setPrompt('')
       setPanel(false)
@@ -194,6 +211,18 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
               <AiIcon />
               Что изменить в коде?
             </span>
+            {models.length > 0 && (
+              <label className="ds-model">
+                <span>Модель</span>
+                <select className="select" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy}>
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} — {m.tag}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
           <textarea
             className="textarea"

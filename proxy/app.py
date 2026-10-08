@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Прокси LXP AI: сайт → этот сервер → Gemini API (Google AI Studio).
+"""Прокси LXP AI: сайт → этот сервер → Groq / Mistral / Gemini.
 
-Ключ Gemini хранится только здесь, в переменной окружения GEMINI_API_KEY, и в браузер не попадает.
-Чат умеет инструменты: поиск по ответам сайта, выполнение кода, поиск Google.
+Ключи хранятся только здесь, в переменных окружения, и в браузер не попадают.
+Порядок: Groq (быстрый, большой бесплатный лимит) → Mistral → Gemini. Если провайдер упёрся
+в лимит или ответил ошибкой, вопрос уходит следующему. Провайдер без ключа пропускается.
+Чат умеет поиск по ответам сайта (у всех), выполнение кода и поиск Google (только Gemini).
 """
 import json
 import os
@@ -19,6 +21,35 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash").strip()
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# Провайдеры: Groq и Mistral — OpenAI-совместимый API с большим бесплатным лимитом
+PROVIDERS = {
+    "groq": {
+        "name": "Groq",
+        "url": os.environ.get("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions"),
+        "key": os.environ.get("GROQ_API_KEY", "").strip(),
+        "env": "GROQ_API_KEY",
+    },
+    "mistral": {
+        "name": "Mistral",
+        "url": os.environ.get("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions"),
+        "key": os.environ.get("MISTRAL_API_KEY", "").strip(),
+        "env": "MISTRAL_API_KEY",
+    },
+    "gemini": {"name": "Gemini", "key": GEMINI_KEY, "env": "GEMINI_API_KEY"},
+}
+# Модели, из которых пользователь выбирает под задачу. Модель без ключа провайдера скрыта.
+MODELS = [
+    {"id": "groq", "provider": "groq", "model": os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile").strip(),
+     "name": "Llama 3.3 70B", "tag": "Groq · большой лимит"},
+    {"id": "groq-fast", "provider": "groq", "model": os.environ.get("GROQ_FAST_MODEL", "llama-3.1-8b-instant").strip(),
+     "name": "Llama 3.1 8B", "tag": "Groq · мгновенная"},
+    {"id": "mistral", "provider": "mistral", "model": os.environ.get("MISTRAL_MODEL", "mistral-small-latest").strip(),
+     "name": "Mistral Small", "tag": "Mistral · по-русски"},
+    {"id": "codestral", "provider": "mistral", "model": os.environ.get("CODESTRAL_MODEL", "codestral-latest").strip(),
+     "name": "Codestral", "tag": "Mistral · для кода"},
+    {"id": "gemini", "provider": "gemini", "model": GEMINI_MODEL,
+     "name": "Gemini Flash", "tag": "Google · считает кодом"},
+]
 ALLOW_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*").strip() or "*"
 SITE_URL = os.environ.get("SITE_URL", "https://lxp-answers.onrender.com").strip().rstrip("/")
 # пароль админки задаётся только в настройках сервиса; без него админка выключена
@@ -34,12 +65,14 @@ CHAT_SYSTEM = (
     "Отвечай по-русски, понятно и по шагам, в Markdown. Формулы пиши в LaTeX ($…$ и $$…$$). "
     "Решая задачу, используй методы и обозначения курса и проверяй ответ. Код оформляй в блоках ```."
 )
-TOOLS_SYSTEM = CHAT_SYSTEM + (
+SITE_TOOLS_HINT = (
     " У тебя есть инструменты. Если вопрос про задание курса — сначала найди его на сайте (search_answers, "
     "потом get_answer) и объясняй тем же методом и в тех же обозначениях, что в решении сайта; "
-    "в конце дай ссылку на задание в виде [название](link). Вычисления проверяй выполнением кода. "
+    "в конце дай ссылку на задание в виде [название](link). "
     "Если пользователь даёт свои данные или вариант — пересчитай заново, не подгоняй под ответ сайта."
 )
+TOOLS_SYSTEM = CHAT_SYSTEM + SITE_TOOLS_HINT + " Вычисления проверяй выполнением кода."
+OPENAI_TOOLS_SYSTEM = CHAT_SYSTEM + SITE_TOOLS_HINT + " Вычисления проверяй вручную, подстановкой."
 
 
 # ---------- статистика и журнал (в памяти, обнуляются при перезапуске) ----------
@@ -68,12 +101,18 @@ def record(kind, ok, ms=0, model="", detail=""):
         EVENTS.appendleft({"t": now_iso(), "kind": kind, "ok": ok, "ms": ms, "model": model, "detail": detail[:300]})
 
 
-# ---------- Gemini ----------
-class GeminiError(RuntimeError):
+# ---------- ошибки провайдеров ----------
+class AIError(RuntimeError):
     def __init__(self, msg, status=0, retry_after=0):
         super().__init__(msg)
         self.status = status
-        self.retry_after = retry_after  # через сколько секунд Google разрешит следующий запрос (при 429)
+        self.retry_after = retry_after  # через сколько секунд провайдер разрешит следующий запрос (при 429)
+
+
+GeminiError = AIError
+
+
+# ---------- Gemini ----------
 
 
 def gemini_call(body, model=None):
@@ -283,15 +322,148 @@ def gemini_tools(messages, web=False):
     return text.strip()
 
 
-def chat(messages, mode, web=False):
-    if mode == "fast" and not web:
-        return gemini_plain(CHAT_SYSTEM, messages)
-    return gemini_tools(messages, web=web)
+# ---------- Groq и Mistral (OpenAI-совместимый API) ----------
+OPENAI_SITE_TOOLS = [{"type": "function", "function": f} for f in SITE_TOOLS["functionDeclarations"]]
 
 
-def refine(code, lang, instruction):
-    user = f"Язык: {lang}.\n\nВот код:\n{code}\n\nЗадача: {instruction}"
-    return gemini_plain(REFINE_SYSTEM, [{"role": "user", "content": user}], temperature=0.2)
+def openai_call(p, messages, tools=None, temperature=0.4):
+    body = {"model": p["model"], "messages": messages, "temperature": temperature}
+    if tools:
+        body.update({"tools": tools, "tool_choice": "auto"})
+    req = urllib.request.Request(
+        p["url"],
+        data=json.dumps(body).encode(),
+        method="POST",
+        headers={"Authorization": f"Bearer {p['key']}", "Content-Type": "application/json", "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "ignore")
+        try:
+            err = json.loads(detail)
+            detail = (err.get("error") or {}).get("message") if isinstance(err.get("error"), dict) else err.get("message", detail)
+        except Exception:  # noqa: BLE001
+            pass
+        if exc.code == 429:
+            try:
+                wait = round(float(exc.headers.get("retry-after", "") or 0))
+            except ValueError:
+                wait = 0
+            raise AIError(f"Бесплатный лимит {p['name']} на эту минуту закончился", 429, wait or 60) from None
+        raise AIError(f"{p['name']}: HTTP {exc.code} — {str(detail)[:300]}", exc.code) from None
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise AIError(f"{p['name']}: нет ответа ({exc})", 503) from None
+    return (data.get("choices") or [{}])[0].get("message") or {}
+
+
+def openai_messages(system, messages):
+    return [{"role": "system", "content": system}] + [
+        {"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content", ""))}
+        for m in messages[-20:] if isinstance(m, dict)
+    ]
+
+
+def openai_plain(p, system, messages, temperature=0.4):
+    text = (openai_call(p, openai_messages(system, messages), temperature=temperature).get("content") or "").strip()
+    if not text:
+        raise AIError(f"{p['name']} не ответил (пустой ответ)", 502)
+    return text
+
+
+def run_site_tool(name, args, used):
+    try:
+        if name == "search_answers":
+            used.append(f"поиск: {args.get('query', '')}")
+            return {"results": search_answers(args.get("query", ""))}
+        if name == "get_answer":
+            used.append(f"задание: {args.get('id', '')}")
+            return get_answer(args.get("id", ""))
+        return {"error": "нет такой функции"}
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"не удалось получить ответы сайта: {exc}"}
+
+
+def openai_tools(p, messages):
+    """Диалог с поиском по ответам сайта через вызов функций."""
+    msgs = openai_messages(OPENAI_TOOLS_SYSTEM, messages)
+    used = []
+    for _ in range(4):
+        try:
+            msg = openai_call(p, msgs, tools=OPENAI_SITE_TOOLS)
+        except AIError as exc:
+            # у Llama иногда ломается вызов функции (400 tool_use_failed) — тогда отвечаем без инструментов
+            if exc.status == 400 and not used:
+                return openai_plain(p, CHAT_SYSTEM, messages)
+            raise
+        calls = msg.get("tool_calls") or []
+        if not calls:
+            text = (msg.get("content") or "").strip()
+            if not text:
+                raise AIError(f"{p['name']} не ответил (пустой ответ)", 502)
+            if used:
+                record("tools", True, model=p["name"], detail="; ".join(used))
+            return text
+        msgs.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
+        for c in calls:
+            fn = c.get("function") or {}
+            try:
+                args = json.loads(fn.get("arguments") or "{}")
+            except ValueError:
+                args = {}
+            result = run_site_tool(fn.get("name"), args, used)
+            msgs.append({"role": "tool", "tool_call_id": c.get("id"), "name": fn.get("name"),
+                         "content": json.dumps(result, ensure_ascii=False)[:30000]})
+    # функции вызывались слишком много раз — просим итог без инструментов
+    return (openai_call(p, msgs).get("content") or "").strip() or openai_plain(p, CHAT_SYSTEM, messages)
+
+
+# ---------- выбор модели ----------
+def models_info():
+    return [{"id": m["id"], "name": m["name"], "tag": m["tag"], "model": m["model"], "provider": PROVIDERS[m["provider"]]["name"],
+             "on": bool(PROVIDERS[m["provider"]]["key"])} for m in MODELS]
+
+
+def pick_model(model_id):
+    """Выбранная модель; неизвестная или без ключа — понятная ошибка, без молчаливой подмены."""
+    on = [m for m in MODELS if PROVIDERS[m["provider"]]["key"]]
+    if not on:
+        raise AIError("LXP AI не подключён: в настройках прокси нет ключей (GROQ_API_KEY, MISTRAL_API_KEY, GEMINI_API_KEY)")
+    m = next((x for x in MODELS if x["id"] == model_id), None) or on[0]
+    if not PROVIDERS[m["provider"]]["key"]:
+        raise AIError(f"Модель {m['name']} не подключена: в настройках прокси нет {PROVIDERS[m['provider']]['env']}")
+    return m
+
+
+def openai_target(m):
+    return {**PROVIDERS[m["provider"]], "model": m["model"], "name": m["name"], "id": m["id"]}
+
+
+def chat(messages, model_id, web=False):
+    """(текст, имя модели). Поиск Google умеет только Gemini."""
+    m = pick_model("gemini" if web else model_id)
+    if m["provider"] == "gemini":
+        return gemini_tools(messages, web=web), m["name"]
+    return openai_tools(openai_target(m), messages), m["name"]
+
+
+def refine(code, lang, instruction, model_id):
+    m = pick_model(model_id)
+    msgs = [{"role": "user", "content": f"Язык: {lang}.\n\nВот код:\n{code}\n\nЗадача: {instruction}"}]
+    if m["provider"] == "gemini":
+        return gemini_plain(REFINE_SYSTEM, msgs, temperature=0.2), m["name"]
+    return openai_plain(openai_target(m), REFINE_SYSTEM, msgs, temperature=0.2), m["name"]
+
+
+def check_model(model_id):
+    question = [{"role": "user", "content": "Ответь одним коротким предложением: ты на связи?"}]
+    m = pick_model(model_id)
+    if m["id"] != model_id:
+        raise AIError("нет такой модели")
+    if m["provider"] == "gemini":
+        return gemini_plain(CHAT_SYSTEM, question), m
+    return openai_plain(openai_target(m), CHAT_SYSTEM, question), m
 
 
 # ---------- админка ----------
@@ -323,7 +495,7 @@ def admin_status():
         "ok": True,
         "uptime": int(time.time() - STARTED),
         "startedAt": datetime.fromtimestamp(STARTED, timezone.utc).isoformat(timespec="seconds"),
-        "gemini": {"on": bool(GEMINI_KEY), "model": GEMINI_MODEL},
+        "models": models_info(),
         "origin": ALLOW_ORIGIN,
         "site": SITE_URL,
         "stats": {**stats, "avgChatMs": stats["chatMs"] // stats["chatOk"] if stats["chatOk"] else 0},
@@ -347,8 +519,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _fail(self, exc):
-        # лимит Gemini — отдельный ответ, сайт показывает оповещение с обратным отсчётом
-        if isinstance(exc, GeminiError) and exc.status == 429:
+        # все провайдеры упёрлись в лимит — отдельный ответ, сайт показывает оповещение с отсчётом
+        if isinstance(exc, AIError) and exc.status == 429:
             self._json(429, {"error": str(exc), "code": "rate_limit", "retryAfter": exc.retry_after})
         else:
             self._json(502, {"error": str(exc)})
@@ -363,7 +535,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        self._json(200, {"ok": True, "ai": "gemini", "geminiSet": bool(GEMINI_KEY), "model": GEMINI_MODEL})
+        self._json(200, {"ok": True, "models": [m for m in models_info() if m["on"]]})
 
     def do_POST(self):
         path = self.path.rstrip("/")
@@ -389,18 +561,18 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(messages, list) or not messages:
             self._json(400, {"error": "empty messages"})
             return
-        mode = "fast" if body.get("model") == "fast" else "tools"
+        model_id = str(body.get("model", ""))
         web = bool(body.get("web"))
         t0 = time.time()
         try:
-            text = chat(messages, mode, web)
+            text, via = chat(messages, model_id, web)
         except Exception as exc:  # noqa: BLE001
             ms = int((time.time() - t0) * 1000)
-            record("chat", False, ms, mode, str(exc))
+            record("chat", False, ms, model_id, str(exc))
             self._fail(exc)
             return
-        record("chat", True, int((time.time() - t0) * 1000), mode + (" + Google" if web else ""))
-        self._json(200, {"text": text, "via": "Gemini"})
+        record("chat", True, int((time.time() - t0) * 1000), via + (" + Google" if web else ""))
+        self._json(200, {"text": text, "via": via})
 
     def _refine(self, body):
         instruction = str(body.get("instruction", "")).strip()
@@ -409,13 +581,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         t0 = time.time()
         try:
-            text = refine(str(body.get("code", "")), str(body.get("lang", "text")), instruction)
+            text, via = refine(str(body.get("code", "")), str(body.get("lang", "text")), instruction,
+                               str(body.get("model", "")))
         except Exception as exc:  # noqa: BLE001
             record("refine", False, int((time.time() - t0) * 1000), "refine", str(exc))
             self._fail(exc)
             return
-        record("refine", True, int((time.time() - t0) * 1000), "refine")
-        self._json(200, {"text": text, "via": "Gemini"})
+        record("refine", True, int((time.time() - t0) * 1000), f"{via} · правка кода")
+        self._json(200, {"text": text, "via": via})
 
     def _admin(self, action, body):
         denied = check_admin(self._ip(), str(body.get("password", "")))
@@ -427,14 +600,15 @@ class Handler(BaseHTTPRequestHandler):
         if action == "status":
             self._json(200, admin_status())
         elif action == "check":
+            model_id = str(body.get("model", ""))
             t0 = time.time()
             try:
-                answer = gemini_plain(CHAT_SYSTEM, [{"role": "user", "content": "Ответь одним коротким предложением: ты на связи?"}])
-                ok, why = True, f"Gemini ({GEMINI_MODEL}) отвечает"
+                answer, m = check_model(model_id)
+                ok, why = True, f"{m['name']} ({m['model']}) отвечает"
             except Exception as exc:  # noqa: BLE001
                 answer, ok, why = "", False, str(exc)
             ms = int((time.time() - t0) * 1000)
-            record("check", ok, ms, GEMINI_MODEL, "" if ok else why)
+            record("check", ok, ms, model_id, "" if ok else why)
             self._json(200, {"ok": ok, "detail": why, "answer": answer, "ms": ms})
         elif action == "clear":
             with LOCK:
@@ -451,7 +625,8 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     port = int(os.environ.get("PORT", "8000"))
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    print(f"LXP AI proxy on :{port}; gemini key set: {bool(GEMINI_KEY)}; model: {GEMINI_MODEL}; origin: {ALLOW_ORIGIN}")
+    on = [m["name"] for m in models_info() if m["on"]]
+    print(f"LXP AI proxy on :{port}; providers: {on or 'нет ключей'}; origin: {ALLOW_ORIGIN}")
     srv.serve_forever()
 
 

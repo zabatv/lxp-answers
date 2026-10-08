@@ -891,3 +891,15 @@
   color: var(--text);
   text-decoration-color: var(--accent);
 }
+
+/* какая модель ответила — мелко под ответом */
+.chat-via {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* меню моделей PromptBar — шире, чтобы влезали подписи «для чего модель» */
+.chat-input .prompt-bar__menu[data-kind='model'] {
+  width: min(300px, calc(100vw - 40px));
+}

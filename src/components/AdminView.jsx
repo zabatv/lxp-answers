@@ -13,13 +13,8 @@ import Icon from './Icon.jsx'
 import StatusMark from './reactbits/StatusMark.jsx'
 
 const REFRESH_MS = 20_000
-const MODEL_NAMES = {
-  tools: 'LXP AI',
-  'tools + Google': 'LXP AI + Google',
-  fast: 'LXP AI Быстрый',
-  'fast + Google': 'LXP AI + Google',
-  refine: 'Правка кода',
-}
+// ключ провайдера, без которого модель скрыта на сайте
+const KEY_ENV = { Groq: 'GROQ_API_KEY', Mistral: 'MISTRAL_API_KEY', Gemini: 'GEMINI_API_KEY' }
 
 function uptime(sec) {
   if (sec < 60) return `${sec} с`
@@ -184,10 +179,10 @@ function ProxyPanel({ password, onLock }) {
     return () => clearInterval(t)
   }, [auto, load])
 
-  const runCheck = async () => {
-    setCheck({ state: 'running', text: 'Gemini: задаю тестовый вопрос…' })
+  const runCheck = async (m) => {
+    setCheck({ state: 'running', text: `${m.name}: задаю тестовый вопрос…` })
     try {
-      const r = await adminCheck(password)
+      const r = await adminCheck(password, m.id)
       setCheck(
         r.ok
           ? { state: 'done', text: `${r.detail}. Ответ за ${(r.ms / 1000).toFixed(1)} с: «${r.answer}»` }
@@ -240,10 +235,9 @@ function ProxyPanel({ password, onLock }) {
           <div className="admin-tiles">
             <Tile label="Работает без перезапуска" value={uptime(status.uptime)} hint={`с ${timeOf(status.startedAt)}`} />
             <Tile
-              label="Gemini"
-              value={status.gemini.on ? 'подключён' : 'нет ключа'}
-              hint={status.gemini.model}
-              tone={status.gemini.on ? undefined : 'bad'}
+              label="Моделей подключено"
+              value={`${status.models.filter((m) => m.on).length} из ${status.models.length}`}
+              tone={status.models.some((m) => m.on) ? undefined : 'bad'}
             />
             <Tile label="Запросов в чат" value={s.chat} hint={s.avgChatMs ? `в среднем ${(s.avgChatMs / 1000).toFixed(1)} с` : undefined} />
             <Tile label="Правок кода" value={s.refine} />
@@ -254,7 +248,7 @@ function ProxyPanel({ password, onLock }) {
           <div className="admin-models">
             {models.map(([m, n]) => (
               <div key={m} className="admin-model">
-                <span>{MODEL_NAMES[m] || m}</span>
+                <span>{m}</span>
                 <span className="admin-bar">
                   <span style={{ width: `${(n / maxModel) * 100}%` }} />
                 </span>
@@ -263,13 +257,33 @@ function ProxyPanel({ password, onLock }) {
             ))}
           </div>
         )}
-        <div className="admin-row admin-row--check">
-          <button type="button" className="btn btn-primary" onClick={() => runCheck()} disabled={check?.state === 'running'}>
-            <Icon icon={FlashIcon} size={15} />
-            Проверить Gemini
-          </button>
-          {check && <StatusMark status={check.state} label={check.text} color="var(--muted)" doneColor="#8fd18a" errorColor="#ff5c4d" size={16} fontSize={13.5} />}
-        </div>
+        {status?.models && (
+          <div className="admin-providers">
+            <span className="admin-tile-label">Модели — выбираются в чате и у кнопки LXP AI на файлах</span>
+            {status.models.map((m) => (
+              <div key={m.id} className="admin-provider" data-on={m.on ? '' : undefined}>
+                <span className="admin-dot" data-ok={m.on ? '' : undefined} />
+                <strong>{m.name}</strong>
+                <span className="admin-provider-model">
+                  {m.provider} · {m.model}
+                </span>
+                {m.on ? (
+                  <button type="button" className="btn" disabled={check?.state === 'running'} onClick={() => runCheck(m)}>
+                    <Icon icon={FlashIcon} size={15} />
+                    Проверить
+                  </button>
+                ) : (
+                  <span className="admin-provider-off">нет {KEY_ENV[m.provider] || 'ключа'}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {check && (
+          <div className="admin-row admin-row--check">
+            <StatusMark status={check.state} label={check.text} color="var(--muted)" doneColor="#8fd18a" errorColor="#ff5c4d" size={16} fontSize={13.5} />
+          </div>
+        )}
       </section>
 
 
@@ -359,7 +373,7 @@ export default function AdminView({ onSelect }) {
       <header className="admin-head">
         <div>
           <h1>Админка</h1>
-          <p>Состояние LXP AI (Gemini), журнал запросов и сводка по ответам</p>
+          <p>Модели LXP AI, журнал запросов и сводка по ответам</p>
         </div>
         {online && (
           <span className="admin-pill" data-state={server ? (server.ok ? 'ok' : 'bad') : 'wait'}>

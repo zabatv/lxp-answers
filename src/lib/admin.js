@@ -26,7 +26,7 @@ async function post(action, body) {
 }
 
 export const adminStatus = (password) => post('status', { password })
-export const adminCheck = (password) => post('check', { password })
+export const adminCheck = (password, model) => post('check', { password, model })
 export const adminClear = (password) => post('clear', { password })
 
 // GET / — открытая проверка: жив ли сервер и сколько он отвечает

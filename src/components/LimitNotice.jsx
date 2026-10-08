@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Cancel01Icon, Clock01Icon, RefreshIcon } from '@hugeicons/core-free-icons'
 import Icon from './Icon.jsx'
 
-// Оповещение о лимите бесплатного ключа Gemini: обратный отсчёт и «Отправить ещё раз».
-export default function LimitNotice({ until, onRetry, onClose }) {
+// Оповещение о лимите бесплатной модели: обратный отсчёт и «Отправить ещё раз».
+export default function LimitNotice({ title, until, onRetry, onClose }) {
   const left = () => Math.max(0, Math.ceil((until - Date.now()) / 1000))
   const [sec, setSec] = useState(left)
   const [total] = useState(left) // длительность полосы — один раз, чтобы анимация не перезапускалась
@@ -20,11 +20,11 @@ export default function LimitNotice({ until, onRetry, onClose }) {
     <div className="limit-notice" role="status" data-ready={ready ? '' : undefined}>
       <Icon icon={Clock01Icon} size={18} />
       <div className="limit-text">
-        <strong>Бесплатный лимит Gemini на эту минуту закончился</strong>
+        <strong>{title || 'Бесплатный лимит модели на эту минуту закончился'}</strong>
         <span>
           {ready
             ? 'Лимит обновился — можно отправлять.'
-            : `Бесплатный ключ даёт всего несколько запросов в минуту. Можно спросить снова через ${sec} с.`}
+            : `Можно спросить снова через ${sec} с — или выбери другую модель в поле ввода.`}
         </span>
       </div>
       {ready && (

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Attachment01Icon, BookOpen01Icon, Delete02Icon, Globe02Icon } from '@hugeicons/core-free-icons'
 import { readyDisciplines } from '../lib/lessons.js'
-import { CHAT_ATTEMPTS, chat, hasProxy, wakeProxy } from '../lib/ai.js'
+import { CHAT_ATTEMPTS, chat, getModels, hasProxy, saveModel, savedModel } from '../lib/ai.js'
 import AiIcon from './AiIcon.jsx'
 import ChatMarkdown from './ChatMarkdown.jsx'
 import ChatThinking, { thinkSteps } from './ChatThinking.jsx'
@@ -13,11 +13,9 @@ import StatusMark from './reactbits/StatusMark.jsx'
 const HISTORY_KEY = 'lxp-chat'
 const MAX_FILE = 100_000 // символов из одного прикреплённого файла
 
-// LXP AI работает на Gemini: «tools» ищет по ответам сайта и проверяет вычисления кодом, «fast» — просто отвечает
-const MODELS = [
-  { key: 'tools', name: 'LXP AI', tag: 'Сайт · код' },
-  { key: 'fast', name: 'LXP AI Быстрый', tag: 'Без инструментов' },
-]
+// Модели приходят с прокси — только те, у которых на сервере есть ключ. Пока список не пришёл
+// (сервер просыпается), показываем заглушку, чтобы PromptBar было что отрисовать.
+const NO_MODELS = [{ key: '', name: 'LXP AI', tag: 'загружаю модели…' }]
 const WEB = 'Поиск в Google'
 
 // команды раскрываются в просьбу для LXP AI; в чате видно то, что набрал пользователь
@@ -64,7 +62,8 @@ const STATUS_LABEL = {
 export default function ChatView() {
   const [messages, setMessages] = useState(loadHistory)
   const [busy, setBusy] = useState(false)
-  const [limit, setLimit] = useState(null) // { until, history, model, web } — упёрлись в лимит Gemini
+  const [limit, setLimit] = useState(null) // { until, history, model, web, title } — модель упёрлась в лимит
+  const [models, setModels] = useState(NO_MODELS)
   const files = useRef(new Map()) // имя прикреплённого файла → его текст
   const abortRef = useRef(null)
   const fileInput = useRef(null)
@@ -91,10 +90,19 @@ export default function ChatView() {
     if (el.getBoundingClientRect().top - window.innerHeight < 260) el.scrollIntoView({ block: 'end' })
   }, [])
 
-  // сервер на Render мог уснуть — будим его сразу, пока пользователь пишет вопрос
+  // сервер на Render мог уснуть — будим его сразу и заодно узнаём, какие модели подключены
   useEffect(() => {
-    wakeProxy()
+    let alive = true
+    getModels().then((list) => {
+      if (alive && list.length) setModels(list.map((m) => ({ key: m.id, name: m.name, tag: m.tag })))
+    })
+    return () => {
+      alive = false
+    }
   }, [])
+  // последняя выбранная модель — первой по умолчанию
+  const defaultModel = models.some((m) => m.key === savedModel()) ? savedModel() : models[0].key
+  const modelName = (id) => models.find((m) => m.key === id)?.name || ''
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -168,7 +176,7 @@ export default function ChatView() {
     abortRef.current = ctrl
     setBusy(true)
     const startedAt = Date.now()
-    setMessages((m) => [...m, { role: 'assistant', content: '', status: 'running', model, startedAt, steps: thinkSteps(model, web) }])
+    setMessages((m) => [...m, { role: 'assistant', content: '', status: 'running', model, startedAt, steps: thinkSteps(model, web), via: web ? 'Gemini Flash' : modelName(model) }])
     const finish = (patch) =>
       setMessages((m) => m.map((x, i) => (i === m.length - 1 && x.status === 'running' ? { ...x, ...patch } : x)))
     try {
@@ -189,8 +197,8 @@ export default function ChatView() {
     } catch (err) {
       if (ctrl.signal.aborted) finish({ status: 'cancelled' })
       else if (err.code === 'rate_limit') {
-        finish({ content: 'Не успел ответить: закончился бесплатный лимит Gemini на эту минуту.', status: 'failed' })
-        setLimit({ until: Date.now() + err.retryAfter * 1000, history, model, web })
+        finish({ content: `Не успел ответить: ${err.message.toLowerCase()}.`, status: 'failed' })
+        setLimit({ until: Date.now() + err.retryAfter * 1000, history, model, web, title: err.message })
       } else finish({ content: err.message || String(err), status: 'failed' })
     } finally {
       if (abortRef.current === ctrl) abortRef.current = null
@@ -215,7 +223,9 @@ export default function ChatView() {
     const userMsg = { role: 'user', content: shown, files: attachments, ...(api !== shown ? { api } : {}) }
     const history = [...messages.filter((x) => x.status !== 'cancelled' || x.content), userMsg]
     setMessages((m) => [...m, userMsg])
-    ask(history, model?.key || MODELS[0].key, shown.includes(`@${WEB}`))
+    const modelId = model?.key || defaultModel
+    if (modelId) saveModel(modelId)
+    ask(history, modelId, shown.includes(`@${WEB}`))
   }
 
   const onStop = () => abortRef.current?.abort()
@@ -316,6 +326,7 @@ export default function ChatView() {
                   ) : (
                     <p className="chat-text">{m.content}</p>
                   ))}
+                {m.status === 'done' && m.via && <span className="chat-via">{m.via}</span>}
               </div>
             )
           )
@@ -324,13 +335,16 @@ export default function ChatView() {
       </div>
 
       <div className="chat-input">
-        {limit && <LimitNotice until={limit.until} onRetry={retryAfterLimit} onClose={() => setLimit(null)} />}
+        {limit && (
+          <LimitNotice title={limit.title} until={limit.until} onRetry={retryAfterLimit} onClose={() => setLimit(null)} />
+        )}
         <PromptBar
           placeholder="Спроси LXP AI…  / — команды, @ — источники"
           sources={sources}
           commands={COMMANDS}
-          models={MODELS}
-          defaultModel={MODELS[0].key}
+          key={models.map((m) => m.key).join()}
+          models={models}
+          defaultModel={defaultModel}
           efforts={[]}
           busy={busy}
           onSend={onSend}

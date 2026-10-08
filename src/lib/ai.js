@@ -54,6 +54,28 @@ export async function wakeProxy() {
   }
 }
 
+// Модели, подключённые на прокси (у которых есть ключ): [{ id, name, tag, provider }].
+// Запрос один на вкладку — его делят чат и кнопки LXP AI у файлов.
+let modelsPromise = null
+export function getModels() {
+  if (!modelsPromise) {
+    modelsPromise = wakeProxy().then((data) => (Array.isArray(data?.models) ? data.models : []))
+    modelsPromise.then((list) => {
+      if (!list.length) modelsPromise = null // сервер спал — спросим ещё раз в следующий раз
+    })
+  }
+  return modelsPromise
+}
+
+// выбранная модель запоминается в браузере — одна на чат и правку кода
+const MODEL_KEY = 'lxp-model'
+export function savedModel() {
+  try { return localStorage.getItem(MODEL_KEY) || '' } catch { return '' }
+}
+export function saveModel(id) {
+  try { localStorage.setItem(MODEL_KEY, id) } catch { /* приватный режим */ }
+}
+
 async function postOnce(path, payload, signal) {
   let res
   try {
@@ -108,14 +130,14 @@ async function postWithRetry(path, payload, { signal, onRetry } = {}) {
   }
 }
 
-// Чат. model: 'tools' — с инструментами (ответы сайта, проверка кодом), 'fast' — просто ответ.
+// Чат. model — id модели из getModels(); поиск по ответам сайта есть у всех моделей.
 // web — разрешить поиск Google. Возвращает { text (markdown), via }.
-export function chat({ messages, model = 'tools', web = false, signal, onRetry }) {
+export function chat({ messages, model = '', web = false, signal, onRetry }) {
   return postWithRetry('/api/chat', { messages, model, web: Boolean(web) }, { signal, onRetry })
 }
 
 // Отправляет код + инструкцию на прокси, получает переписанный код.
-export async function refineCode({ code, lang, instruction, context }) {
-  const { text } = await postWithRetry('/api/refine', { code, lang, instruction: withContext(instruction, context) })
+export async function refineCode({ code, lang, instruction, context, model = '' }) {
+  const { text } = await postWithRetry('/api/refine', { code, lang, model, instruction: withContext(instruction, context) })
   return text.replace(/^```[^\n]*\n?/, '').replace(/\n?```\s*$/, '').trim()
 }
