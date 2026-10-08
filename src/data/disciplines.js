@@ -5,10 +5,11 @@ import { htmlcssAnswers } from './htmlcss.js'
 import { discreteAnswers } from './discrete.js'
 import { logicAnswers } from './logic.js'
 import { mathAnswers } from './highermath.js'
+import { promptAnswers } from './prompt.js'
 
 export const disciplines = [
   { id: 'xml', name: 'XML технологии', teacher: 'Край Дисана', status: 'ready', answers: xmlAnswers() },
-  { id: 'prompt', name: 'Prompt-Engineering для ИИ', teacher: 'Ремизов Г. А.', status: 'soon' },
+  { id: 'prompt', name: 'Prompt-Engineering для ИИ', teacher: 'Ремизов Г. А.', status: 'ready', answers: promptAnswers },
   { id: 'english', name: 'Английский язык A2+', teacher: '', status: 'soon' },
   { id: 'pm', name: 'Введение в управление проектами', teacher: 'Шукова Л. В.', status: 'soon' },
   { id: 'discrete', name: 'Дискретная математика', teacher: 'Киржинов Р. А.', status: 'ready', answers: discreteAnswers },

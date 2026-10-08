@@ -5,12 +5,14 @@ import csharp from 'highlight.js/lib/languages/csharp'
 import css from 'highlight.js/lib/languages/css'
 import sql from 'highlight.js/lib/languages/sql'
 import javascript from 'highlight.js/lib/languages/javascript'
+import python from 'highlight.js/lib/languages/python'
 
 hljs.registerLanguage('xml', xml)
 hljs.registerLanguage('csharp', csharp)
 hljs.registerLanguage('css', css)
 hljs.registerLanguage('sql', sql)
 hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('python', python)
 
 // lang из data/*.js → грамматика highlight.js
 const GRAMMAR = {
@@ -24,6 +26,8 @@ const GRAMMAR = {
   sql: 'sql',
   js: 'javascript',
   javascript: 'javascript',
+  python: 'python',
+  py: 'python',
 }
 
 // подпись и цвет бейджа языка у файла
@@ -38,6 +42,7 @@ const META = {
   sql: { label: 'SQL', color: '#45e6b0' },
   js: { label: 'JS', color: '#f7df6b' },
   javascript: { label: 'JS', color: '#f7df6b' },
+  python: { label: 'PY', color: '#7fd1c7' },
   text: { label: 'TXT', color: '#a3a6bd' },
 }
 
