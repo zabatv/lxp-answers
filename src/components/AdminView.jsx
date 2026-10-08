@@ -268,7 +268,7 @@ function ProxyPanel({ password, onLock }) {
             <Icon icon={FlashIcon} size={15} />
             Проверить Gemini
           </button>
-          {check && <StatusMark status={check.state} label={check.text} color="var(--muted)" doneColor="#45e6b0" errorColor="#ff6b81" size={16} fontSize={13.5} />}
+          {check && <StatusMark status={check.state} label={check.text} color="var(--muted)" doneColor="#8fd18a" errorColor="#ff5c4d" size={16} fontSize={13.5} />}
         </div>
       </section>
 

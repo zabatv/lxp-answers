@@ -23,7 +23,6 @@ export default function SoonView({ discipline, onOpenReady }) {
           pattern="spiral"
           showTimer={false}
           color="var(--accent)"
-          glow
           cellSize={7}
           gap={3}
           fontSize={13}

@@ -10,7 +10,6 @@ import {
   lessons,
   valueFromHash,
 } from './lib/lessons.js'
-import ShinyText from './components/reactbits/ShinyText.jsx'
 import Sidebar, { Brand } from './components/Sidebar.jsx'
 import LessonView from './components/LessonView.jsx'
 import SoonView from './components/SoonView.jsx'
@@ -23,7 +22,7 @@ const ChatView = lazy(() => import('./components/ChatView.jsx'))
 const AdminView = lazy(() => import('./components/AdminView.jsx'))
 
 // фон Floating Lines в цветах сайта; на узком экране линий меньше — не мешают читать
-const LINE_GRADIENT = ['#8b7bff', '#5b8cff', '#4cc9f0', '#45e6b0']
+const LINE_GRADIENT = ['#2e2d29', '#4f4d46', '#6d6a61']
 const COMPACT = '(max-width: 960px)'
 
 function useMediaQuery(query) {
@@ -183,7 +182,7 @@ export default function App() {
               )}
 
               <footer className="footer">
-                <ShinyText text="Собрано автоматически · обновляется по мере добавления ответов" speed={6} />
+                <span>Собрано автоматически · обновляется по мере добавления ответов</span>
                 <span className="footer-keys">
                   <kbd className="kbd">/</kbd> поиск
                 </span>

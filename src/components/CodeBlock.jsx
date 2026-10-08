@@ -223,7 +223,7 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
                 working
                 collapsible
                 color="var(--fg)"
-                glyphColor="#8fa2ff"
+                glyphColor="#ffd60a"
                 fontSize={14}
               />
             </div>

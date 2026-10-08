@@ -1,0 +1,893 @@
+/* =====================================================================
+   «Конспект» — визуальный слой поверх базовых стилей.
+   Принципы: плоские поверхности и тонкие линии вместо стекла и свечения;
+   один акцент — жёлтый маркер — только для главного (КТ, баллы, текущий пункт,
+   основное действие); служебные подписи — моноширинным шрифтом.
+   ===================================================================== */
+
+:root {
+  accent-color: var(--accent); /* галочки и переключатели — в цвет маркера */
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- фон: линии ReactBits приглушены, без «сияния» ---------- */
+.bg-aurora,
+.bg-grid {
+  display: none;
+}
+
+.bg-lines {
+  opacity: 0.4;
+}
+
+.bg-noise {
+  opacity: 0.035;
+}
+
+/* ---------- кнопки ---------- */
+.btn {
+  height: 32px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.btn:hover {
+  border-color: var(--line-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-primary,
+.btn-primary:hover {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-lg {
+  height: 42px;
+  border-radius: 8px;
+}
+
+/* «LXP AI» у файла — единственная акцентная кнопка в шапке кода */
+.btn-ds {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: transparent;
+  color: var(--accent);
+}
+
+.btn-ds:hover,
+.btn-ds[aria-expanded='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.btn-run,
+.btn-run:hover,
+.btn-run[aria-pressed='true'] {
+  border-color: var(--line-2);
+  background: transparent;
+  color: var(--text);
+}
+
+.btn-run:hover,
+.btn-run[aria-pressed='true'] {
+  border-color: var(--line-3);
+  background: var(--surface-2);
+}
+
+.btn[data-copied] {
+  border-color: color-mix(in srgb, var(--accent-2) 45%, transparent);
+  background: transparent;
+  color: var(--accent-2);
+}
+
+.icon-btn {
+  border-radius: 8px;
+  background: transparent;
+}
+
+.icon-btn:hover {
+  background: var(--surface-2);
+}
+
+.kbd {
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+
+/* служебные подписи — моноширинным, как поля в тетради */
+.section-label,
+.side-label {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.count {
+  display: inline;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}
+
+.count::before {
+  content: '(';
+}
+
+.count::after {
+  content: ')';
+}
+
+/* ReactBits SpotlightCard — плоская карточка, подсветка курсора едва заметна */
+.spotlight-card {
+  border-color: var(--line-2);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* ---------- боковая панель ---------- */
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.brand {
+  gap: 10px;
+}
+
+.brand-mark {
+  transition: none;
+}
+
+.brand:hover .brand-mark {
+  transform: none;
+}
+
+.brand-name {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.brand-lxp {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.brand-sub {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.search {
+  height: 38px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.search-clear {
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+
+.side-chat {
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.side-chat:hover {
+  border-color: var(--line-3);
+}
+
+.side-chat[aria-current='page'] {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+.side-chat-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.side-chat-text {
+  font-size: 13.5px;
+}
+
+.side-chat-text small {
+  font-size: 11.5px;
+}
+
+/* метки в дереве: КТ — жёлтый маркер, «доделать» — оранжевая рамка */
+.bm-kt,
+.bm-todo {
+  height: 16px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.bm-kt {
+  padding: 0 5px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  letter-spacing: 0;
+}
+
+.bm-todo {
+  width: 16px;
+  border: 1px solid var(--warn);
+  background: transparent;
+  color: var(--warn);
+}
+
+.bm-num {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.branched-menu__meta {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.branched-menu--soon .branched-menu__head[data-active]::before {
+  box-shadow: none;
+}
+
+.result {
+  border-radius: 6px;
+}
+
+.result:hover {
+  background: var(--surface);
+}
+
+.result[data-active] {
+  background: var(--accent-soft);
+}
+
+.result-disc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.result mark {
+  border-radius: 2px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.progress-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.progress {
+  height: 3px;
+  border-radius: 0;
+  background: var(--line);
+}
+
+.progress span {
+  border-radius: 0;
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.side-logout {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+/* ---------- урок ---------- */
+.crumbs {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+
+.crumb-disc {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.crumb-disc::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.lesson-title {
+  margin-top: 14px;
+  font-family: var(--font-sans);
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+/* метаданные строкой через точку вместо пилюль */
+.chips {
+  gap: 4px 0;
+  margin-top: 16px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.chip {
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.chip svg {
+  display: none;
+}
+
+.chip + .chip::before {
+  content: '·';
+  margin: 0 10px;
+  color: var(--text-3);
+}
+
+.chip--points {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.chip--points + .chip::before {
+  margin-left: 10px;
+}
+
+.chip--todo {
+  color: var(--warn);
+}
+
+.chip--unique {
+  color: var(--text);
+  text-decoration: underline dotted var(--text-3);
+  text-underline-offset: 4px;
+}
+
+.task-card {
+  margin-top: 28px;
+  padding: 18px 20px 20px;
+}
+
+.task-text {
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+/* пометки — как заметки на полях: линия слева, без заливки градиентом */
+.callout {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 4px var(--radius) var(--radius) 4px;
+  background: var(--surface);
+}
+
+.callout strong {
+  color: var(--warn);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.callout p {
+  color: var(--text);
+}
+
+.callout--unique {
+  border-left-color: var(--text-2);
+  background: var(--surface);
+}
+
+.callout--unique > svg,
+.callout--unique strong {
+  color: var(--text-2);
+}
+
+.callout--unique p {
+  color: var(--text);
+}
+
+/* ---------- блок кода ---------- */
+.code-block {
+  border-color: var(--line-2);
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+
+.code-head {
+  background: var(--surface);
+}
+
+.lang-badge {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 11px;
+}
+
+.code-edited,
+.code-unique {
+  padding: 1px 6px;
+  border: 1px solid var(--line-3);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.code-edited {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+}
+
+.unique-bar {
+  border-bottom-color: var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.unique-bar svg,
+.unique-bar strong {
+  color: var(--text);
+}
+
+.preview {
+  background: var(--code-bg);
+}
+
+.preview-bar {
+  background: var(--surface);
+}
+
+.preview-url {
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+
+.seg {
+  border-radius: 7px;
+  background: transparent;
+}
+
+.seg button {
+  border-radius: 5px;
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--surface-2);
+}
+
+.preview-stage {
+  background: var(--code-bg);
+}
+
+.preview-frame {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--line-2);
+}
+
+.preview-stage[data-device='phone'] .preview-frame {
+  border-radius: 22px;
+  box-shadow:
+    0 0 0 8px #1c1c1a,
+    0 0 0 9px var(--line-2);
+}
+
+/* панель LXP AI у файла */
+.ds-panel {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ds-title {
+  font-size: 13.5px;
+}
+
+.ds-title svg {
+  color: var(--accent);
+}
+
+.select,
+.textarea {
+  border-radius: 7px;
+}
+
+.textarea:focus,
+.select:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: none;
+}
+
+.ds-err {
+  border-radius: 6px;
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: transparent;
+  color: var(--danger);
+}
+
+.ds-thinking {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--code-bg);
+}
+
+.ds-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ---------- соседние задания ---------- */
+.pager {
+  gap: 0;
+  margin-top: 48px;
+  border-top: 1px solid var(--line);
+}
+
+.pager-card,
+.pager-card.spotlight-card {
+  padding: 18px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.pager-card--next {
+  border-left: 1px solid var(--line);
+  padding-left: 20px;
+}
+
+.pager-card--prev {
+  padding-right: 20px;
+}
+
+.pager-card:hover {
+  transform: none;
+}
+
+.pager-card:hover .pager-title {
+  color: var(--accent);
+}
+
+.pager-dir {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.pager-card:hover .pager-dir {
+  color: var(--text-2);
+}
+
+.pager-title {
+  transition: color 0.15s ease;
+}
+
+.pager-num,
+.pager-disc {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* ---------- заглушка «скоро» ---------- */
+.soon-card {
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.soon-loader {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.soon-title {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- подвал ---------- */
+.footer {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+/* ---------- мобильная шапка и меню ---------- */
+@media (max-width: 960px) {
+  .topbar {
+    background: var(--bg);
+  }
+
+  .sidebar {
+    background: var(--bg);
+    box-shadow: 1px 0 0 var(--line-2);
+  }
+
+  .scrim {
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .pager-card--next {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* ---------- вход ---------- */
+.login-screen {
+  background: var(--bg);
+}
+
+.login-card {
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.login-title {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.login-field {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.login-field input {
+  border-radius: 7px;
+  background: var(--bg);
+  font-family: var(--font-sans);
+}
+
+.login-field input:focus-visible {
+  box-shadow: none;
+}
+
+/* ---------- чат ---------- */
+.chat-title h1 {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.chat-title p {
+  font-size: 13.5px;
+}
+
+.chat-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.chat-offline,
+.chat-chip {
+  border-radius: 8px;
+}
+
+.chat-chip {
+  background: var(--surface);
+  text-align: left;
+}
+
+.chat-empty {
+  color: var(--text-2);
+}
+
+.chat-msg--user {
+  border: 1px solid var(--line-2);
+  border-radius: 10px 10px 2px 10px;
+  background: var(--surface-2);
+}
+
+/* ответ LXP AI — не «пузырь», а запись в конспекте с линией слева */
+.chat-msg--ai {
+  padding: 2px 0 4px 16px;
+  border: 0;
+  border-left: 2px solid var(--line-2);
+  border-radius: 0;
+  background: transparent;
+}
+
+.chat-msg--ai[data-status='running'] {
+  border-left-color: var(--accent);
+}
+
+.chat-file {
+  border-radius: 3px;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.chat-code {
+  border-radius: 8px;
+}
+
+.chat-code-head {
+  background: var(--surface);
+  font-family: var(--font-mono);
+}
+
+.chat-md li::marker {
+  color: var(--text-3);
+}
+
+.chat-md a,
+.chat-site-link {
+  color: var(--text) !important;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.chat-md blockquote {
+  border-left-color: var(--accent);
+}
+
+.chat-table {
+  border-radius: 6px;
+}
+
+.chat-md :not(pre) > code {
+  border-radius: 4px;
+}
+
+.limit-notice {
+  border-radius: 8px;
+  background: #241a0c;
+}
+
+.limit-notice[data-ready] {
+  background: #13200f;
+  color: var(--accent-2);
+}
+
+/* ---------- админка ---------- */
+.admin-head h1 {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.admin-pill {
+  border-radius: 6px;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.admin-pill[data-state='ok']::before {
+  box-shadow: none;
+}
+
+.admin-card {
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.admin-h2 {
+  font-family: var(--font-sans);
+  font-weight: 650;
+}
+
+.admin-tile {
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.admin-tile-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.admin-tile-value {
+  font-family: var(--font-sans);
+  font-weight: 650;
+}
+
+.admin-bar span {
+  background: var(--accent);
+}
+
+.admin-input {
+  border-radius: 7px;
+  background: var(--bg);
+}
+
+.admin-table,
+.admin-todo li,
+.admin-provider {
+  border-radius: 6px;
+}
+
+.admin-link:hover {
+  color: var(--text);
+  text-decoration-color: var(--accent);
+}

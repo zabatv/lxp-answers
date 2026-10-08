@@ -299,8 +299,8 @@ export default function ChatView() {
                     status={m.status}
                     label={STATUS_LABEL[m.status]}
                     color="var(--muted)"
-                    doneColor="#45e6b0"
-                    errorColor="#ff6b81"
+                    doneColor="#8fd18a"
+                    errorColor="#ff5c4d"
                     size={16}
                     fontSize={13}
                   />
@@ -336,10 +336,10 @@ export default function ChatView() {
           onSend={onSend}
           onStop={onStop}
           onAttach={onAttach}
-          background="rgba(22, 24, 36, 0.92)"
-          menuBackground="#1c1f2e"
-          color="#eef0ff"
-          sparkColor="#8b7bff"
+          background="#171716"
+          menuBackground="#1f1f1d"
+          color="#edeae0"
+          sparkColor="#ffd60a"
           width="100%"
           radius={18}
           maxRows={8}

@@ -37,7 +37,7 @@ export default function ChatThinking({ working, steps, startedAt, elapsedMs, wak
       elapsed={working ? undefined : (elapsedMs || 0) / 1000}
       collapsible
       color="var(--muted)"
-      glyphColor="#8fa2ff"
+      glyphColor="#ffd60a"
       fontSize={13.5}
     />
   )
