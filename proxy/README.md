@@ -12,10 +12,12 @@
 | `groq` | Llama 3.3 70B (`GROQ_MODEL`) | Groq · `GROQ_API_KEY` | основная: быстрая, большой бесплатный лимит |
 | `groq-fast` | Llama 3.1 8B (`GROQ_FAST_MODEL`) | Groq · `GROQ_API_KEY` | мгновенная, для простых вопросов |
 | `mistral` | Mistral Small (`MISTRAL_MODEL`) | Mistral · `MISTRAL_API_KEY` | хорошо пишет по-русски |
-| `codestral` | Codestral (`CODESTRAL_MODEL`) | Mistral · `MISTRAL_API_KEY` | код |
+| `codestral` | Codestral (`CODESTRAL_MODEL`) | Mistral · `MISTRAL_API_KEY` | код (у Mistral бесплатного доступа может не быть) |
+| `groq-qwen` | Qwen3 32B (`GROQ_CODE_MODEL`) | Groq · `GROQ_API_KEY` | код, тот же ключ Groq |
+| `cerebras-coder` | Qwen3 Coder (`CEREBRAS_MODEL`) | Cerebras · `CEREBRAS_API_KEY` | код, большая модель для программирования |
 | `gemini` | Gemini Flash (`GEMINI_MODEL`) | Google · `GEMINI_API_KEY` | проверяет вычисления кодом, ищет в Google |
 
-Ключи: console.groq.com → API Keys; console.mistral.ai → API Keys; aistudio.google.com → Get API key.
+Ключи: console.groq.com → API Keys; cloud.cerebras.ai → API Keys; console.mistral.ai → API Keys; aistudio.google.com → Get API key.
 Все модели умеют искать по ответам сайта (функции `search_answers`, `get_answer`).
 
 ## Эндпоинты

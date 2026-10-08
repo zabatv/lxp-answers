@@ -14,7 +14,7 @@ import StatusMark from './reactbits/StatusMark.jsx'
 
 const REFRESH_MS = 20_000
 // ключ провайдера, без которого модель скрыта на сайте
-const KEY_ENV = { Groq: 'GROQ_API_KEY', Mistral: 'MISTRAL_API_KEY', Gemini: 'GEMINI_API_KEY' }
+const KEY_ENV = { Groq: 'GROQ_API_KEY', Mistral: 'MISTRAL_API_KEY', Cerebras: 'CEREBRAS_API_KEY', Gemini: 'GEMINI_API_KEY' }
 
 function uptime(sec) {
   if (sec < 60) return `${sec} с`
