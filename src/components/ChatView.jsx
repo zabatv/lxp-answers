@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Attachment01Icon, BookOpen01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
 import { readyDisciplines } from '../lib/lessons.js'
-import { chat, hasProxy } from '../lib/deepseek.js'
+import { CHAT_ATTEMPTS, chat, hasProxy, wakeProxy } from '../lib/deepseek.js'
 import AiIcon from './AiIcon.jsx'
 import ChatMarkdown from './ChatMarkdown.jsx'
 import Icon from './Icon.jsx'
@@ -69,7 +69,7 @@ export default function ChatView() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-60).map(({ fresh, ...m }) => m)))
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-60).map(({ fresh, attempt, ...m }) => m)))
     } catch {
       /* без хранилища история живёт до перезагрузки */
     }
@@ -84,6 +84,11 @@ export default function ChatView() {
     const el = endRef.current
     if (!el) return
     if (el.getBoundingClientRect().top - window.innerHeight < 260) el.scrollIntoView({ block: 'end' })
+  }, [])
+
+  // сервер на Render мог уснуть — будим его сразу, пока пользователь пишет вопрос
+  useEffect(() => {
+    wakeProxy()
   }, [])
 
   useEffect(() => () => abortRef.current?.abort(), [])
@@ -164,6 +169,7 @@ export default function ChatView() {
         messages: history.filter((x) => x.status !== 'failed').map((x) => ({ role: x.role, content: x.api || x.content })),
         model,
         signal: ctrl.signal,
+        onRetry: (attempt) => finish({ attempt }),
       })
       finish({ content: text || 'Пустой ответ — попробуй переформулировать вопрос.', status: 'done', fresh: true })
     } catch (err) {
@@ -254,7 +260,11 @@ export default function ChatView() {
               <div key={i} className="chat-msg chat-msg--ai" data-status={m.status}>
                 <StatusMark
                   status={m.status}
-                  label={STATUS_LABEL[m.status]}
+                  label={
+                    m.status === 'running' && m.attempt > 1
+                      ? `Сервер просыпается… попытка ${m.attempt} из ${CHAT_ATTEMPTS}`
+                      : STATUS_LABEL[m.status]
+                  }
                   color="var(--muted)"
                   doneColor="#45e6b0"
                   errorColor="#ff6b81"

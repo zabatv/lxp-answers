@@ -59,9 +59,28 @@ export async function refineCode({ code, lang, instruction, model, context }) {
   return out
 }
 
-// Чат: вся история уходит на прокси, ответ — обычный текст (markdown).
-export async function chat({ messages, model, signal }) {
-  if (!PROXY) throw new Error(NO_PROXY)
+// Бесплатный сервер на Render засыпает без запросов и просыпается около минуты.
+// Пока он спит, запрос падает (нет связи) или Render отдаёт 502/503/504 своей HTML-страницей.
+export const CHAT_ATTEMPTS = 10
+const RETRY_EVERY = 60_000 // попытки — раз в минуту
+
+class Asleep extends Error {}
+
+const sleep = (ms, signal) =>
+  new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t)
+      reject(new DOMException('Отменено', 'AbortError'))
+    }, { once: true })
+  })
+
+// будим сервер заранее — например, когда открыли вкладку чата
+export function wakeProxy() {
+  if (PROXY) fetch(PROXY.replace(/\/$/, '') + '/', { mode: 'cors' }).catch(() => {})
+}
+
+async function chatOnce({ messages, model, signal }) {
   let res
   try {
     res = await fetch(PROXY.replace(/\/$/, '') + '/api/chat', {
@@ -72,14 +91,36 @@ export async function chat({ messages, model, signal }) {
     })
   } catch (err) {
     if (signal?.aborted) throw err
-    // бесплатный сервер на Render засыпает — первый запрос после паузы может не пройти
-    throw new Error('LXP AI сейчас недоступен — нет связи с сервером. Подожди минуту и отправь ещё раз.')
+    throw new Asleep('нет связи с сервером')
   }
   if (!res.ok) {
     let detail = ''
     try { detail = await res.text() } catch { /* ignore */ }
-    throw new Error('LXP AI: ошибка ' + res.status + (detail ? ' — ' + detail.slice(0, 200) : ''))
+    // ошибка самого прокси приходит JSON-ом {error}; HTML-страница 5xx — это Render, сервер ещё не проснулся
+    let own = null
+    try { own = JSON.parse(detail).error } catch { /* не JSON */ }
+    if (!own && [502, 503, 504].includes(res.status)) throw new Asleep('сервер просыпается')
+    throw new Error('LXP AI: ошибка ' + res.status + (own || detail ? ' — ' + String(own || detail).slice(0, 200) : ''))
   }
   const data = await res.json()
   return ((data && data.text) || '').trim()
+}
+
+// Чат: вся история уходит на прокси, ответ — обычный текст (markdown).
+// onRetry(attempt) вызывается перед каждой повторной попыткой (2…CHAT_ATTEMPTS).
+export async function chat({ messages, model, signal, onRetry }) {
+  if (!PROXY) throw new Error(NO_PROXY)
+  for (let attempt = 1; ; attempt++) {
+    const started = Date.now()
+    try {
+      return await chatOnce({ messages, model, signal })
+    } catch (err) {
+      if (!(err instanceof Asleep)) throw err
+      if (attempt >= CHAT_ATTEMPTS) {
+        throw new Error(`LXP AI не ответил за ${CHAT_ATTEMPTS} попыток — сервер так и не проснулся. Попробуй позже.`)
+      }
+      onRetry?.(attempt + 1)
+      await sleep(Math.max(0, RETRY_EVERY - (Date.now() - started)), signal)
+    }
+  }
 }
