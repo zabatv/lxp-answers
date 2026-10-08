@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Cancel01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { disciplines } from '../data/disciplines.js'
 import {
+  ADMIN,
   CHAT,
   lessons,
   menuLabels,
@@ -248,9 +249,19 @@ export default function Sidebar({ selected, onSelect, query, onQuery, searchRef,
         <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <span style={{ width: `${pct}%` }} />
         </div>
-        <button type="button" className="side-logout" onClick={logout}>
-          Выйти
-        </button>
+        <div className="side-foot-links">
+          <button
+            type="button"
+            className="side-logout"
+            aria-current={selected === ADMIN ? 'page' : undefined}
+            onClick={() => onSelect(ADMIN)}
+          >
+            Админка
+          </button>
+          <button type="button" className="side-logout" onClick={logout}>
+            Выйти
+          </button>
+        </div>
       </div>
     </aside>
   )

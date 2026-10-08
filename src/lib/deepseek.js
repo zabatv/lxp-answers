@@ -10,6 +10,8 @@ const PROXY =
 
 const NO_PROXY = 'LXP AI не подключён: не задан адрес прокси (переменная VITE_DEEPSEEK_PROXY)'
 
+export const proxyBase = () => PROXY.replace(/\/$/, '')
+
 export function hasProxy() {
   return Boolean(PROXY)
 }

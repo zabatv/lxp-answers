@@ -52,6 +52,7 @@ export function findDiscipline(value) {
 
 // ---------- ссылки ----------
 export const CHAT = 'chat'
+export const ADMIN = 'admin'
 
 export function hashFromValue(value) {
   return '#/' + value.replace('::', '/')
@@ -62,7 +63,7 @@ export function valueFromHash(hash) {
   try { path = decodeURIComponent(path) } catch { /* битая ссылка */ }
   const [did, aid] = path.split('/')
   if (!did) return null
-  if (did === CHAT) return CHAT
+  if (did === CHAT || did === ADMIN) return did
   if (aid) return findLesson(`${did}::${aid}`) ? `${did}::${aid}` : null
   const d = disciplines.find((x) => x.id === did)
   if (!d) return null

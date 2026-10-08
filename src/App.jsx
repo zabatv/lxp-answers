@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Menu01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import {
+  ADMIN,
   CHAT,
   DEFAULT_VALUE,
   findDiscipline,
@@ -19,6 +20,7 @@ import Icon from './components/Icon.jsx'
 const FloatingLines = lazy(() => import('./components/reactbits/FloatingLines.jsx'))
 // чат (PromptBar, StatusMark) — тоже отдельным чанком, только когда его открыли
 const ChatView = lazy(() => import('./components/ChatView.jsx'))
+const AdminView = lazy(() => import('./components/AdminView.jsx'))
 
 // фон Floating Lines в цветах сайта; на узком экране линий меньше — не мешают читать
 const LINE_GRADIENT = ['#8b7bff', '#5b8cff', '#4cc9f0', '#45e6b0']
@@ -119,7 +121,8 @@ export default function App() {
       const { num, text } = lesson.label
       name = num ? `№${num} ${text}` : text
     }
-    document.title = selected === CHAT ? 'Чат · LXP AI' : name ? `${name} · Ответы LXP` : 'Ответы · LXP'
+    document.title =
+      selected === CHAT ? 'Чат · LXP AI' : selected === ADMIN ? 'Админка · LXP' : name ? `${name} · Ответы LXP` : 'Ответы · LXP'
   }, [lesson, discipline, selected])
 
   return (
@@ -165,7 +168,11 @@ export default function App() {
 
           <main className="main">
             <div className="main-inner">
-              {selected === CHAT ? (
+              {selected === ADMIN ? (
+                <Suspense fallback={<div className="chat-loading" aria-busy="true" />}>
+                  <AdminView onSelect={select} />
+                </Suspense>
+              ) : selected === CHAT ? (
                 <Suspense fallback={<div className="chat-loading" aria-busy="true" />}>
                   <ChatView />
                 </Suspense>
