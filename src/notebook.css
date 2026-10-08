@@ -903,3 +903,45 @@
 .chat-input .prompt-bar__menu[data-kind='model'] {
   width: min(300px, calc(100vw - 40px));
 }
+
+/* рассуждения «думающей» модели — свёрнуты над ответом */
+.chat-reasoning {
+  margin: 2px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.chat-reasoning summary {
+  padding: 6px 10px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  cursor: pointer;
+  list-style: none;
+}
+.chat-reasoning summary::-webkit-details-marker {
+  display: none;
+}
+.chat-reasoning summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--text-3);
+  transition: transform 0.15s ease;
+}
+.chat-reasoning[open] summary::before {
+  transform: rotate(90deg);
+}
+.chat-reasoning summary span {
+  color: var(--text-3);
+}
+.chat-reasoning-text {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}

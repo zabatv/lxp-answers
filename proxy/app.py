@@ -35,12 +35,6 @@ PROVIDERS = {
         "key": os.environ.get("MISTRAL_API_KEY", "").strip(),
         "env": "MISTRAL_API_KEY",
     },
-    "cerebras": {
-        "name": "Cerebras",
-        "url": os.environ.get("CEREBRAS_URL", "https://api.cerebras.ai/v1/chat/completions"),
-        "key": os.environ.get("CEREBRAS_API_KEY", "").strip(),
-        "env": "CEREBRAS_API_KEY",
-    },
     "gemini": {"name": "Gemini", "key": GEMINI_KEY, "env": "GEMINI_API_KEY"},
 }
 # Модели, из которых пользователь выбирает под задачу. Модель без ключа провайдера скрыта.
@@ -55,9 +49,6 @@ MODELS = [
      "name": "Codestral", "tag": "Mistral · для кода"},
     {"id": "groq-qwen", "provider": "groq", "model": os.environ.get("GROQ_CODE_MODEL", "qwen/qwen3-32b").strip(),
      "name": "Qwen3 32B", "tag": "Groq · для кода"},
-    {"id": "cerebras-coder", "provider": "cerebras",
-     "model": os.environ.get("CEREBRAS_MODEL", "qwen-3-coder-480b").strip(),
-     "name": "Qwen3 Coder", "tag": "Cerebras · для кода"},
     {"id": "gemini", "provider": "gemini", "model": GEMINI_MODEL,
      "name": "Gemini Flash", "tag": "Google · считает кодом"},
 ]
@@ -366,11 +357,13 @@ def openai_call(p, messages, tools=None, temperature=0.4):
         raise AIError(f"{p['name']}: HTTP {exc.code} — {str(detail)[:300]}", exc.code) from None
     except (urllib.error.URLError, TimeoutError) as exc:
         raise AIError(f"{p['name']}: нет ответа ({exc})", 503) from None
-    msg = (data.get("choices") or [{}])[0].get("message") or {}
-    # Qwen и другие «думающие» модели пишут рассуждения в <think>…</think> — пользователю их не показываем
-    if isinstance(msg.get("content"), str):
-        msg["content"] = re.sub(r"<think>[\s\S]*?(</think>|$)", "", msg["content"]).strip()
-    return msg
+    # рассуждения «думающих» моделей (<think>…</think>) не трогаем — чат показывает их отдельным блоком
+    return (data.get("choices") or [{}])[0].get("message") or {}
+
+
+def strip_think(text):
+    """Без рассуждений <think>…</think> — для правки кода, где нужен только итоговый код."""
+    return re.sub(r"<think>[\s\S]*?(</think>|$)", "", text).strip()
 
 
 def openai_messages(system, messages):
@@ -468,7 +461,7 @@ def refine(code, lang, instruction, model_id):
     msgs = [{"role": "user", "content": f"Язык: {lang}.\n\nВот код:\n{code}\n\nЗадача: {instruction}"}]
     if m["provider"] == "gemini":
         return gemini_plain(REFINE_SYSTEM, msgs, temperature=0.2), m["name"]
-    return openai_plain(openai_target(m), REFINE_SYSTEM, msgs, temperature=0.2), m["name"]
+    return strip_think(openai_plain(openai_target(m), REFINE_SYSTEM, msgs, temperature=0.2)), m["name"]
 
 
 def check_model(model_id):
@@ -478,7 +471,7 @@ def check_model(model_id):
         raise AIError("нет такой модели")
     if m["provider"] == "gemini":
         return gemini_plain(CHAT_SYSTEM, question), m
-    return openai_plain(openai_target(m), CHAT_SYSTEM, question), m
+    return strip_think(openai_plain(openai_target(m), CHAT_SYSTEM, question)), m
 
 
 # ---------- админка ----------

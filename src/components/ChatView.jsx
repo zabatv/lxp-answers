@@ -4,6 +4,7 @@ import { readyDisciplines } from '../lib/lessons.js'
 import { CHAT_ATTEMPTS, chat, getModels, hasProxy, saveModel, savedModel } from '../lib/ai.js'
 import AiIcon from './AiIcon.jsx'
 import ChatMarkdown from './ChatMarkdown.jsx'
+import ChatReasoning, { splitThink } from './ChatReasoning.jsx'
 import ChatThinking, { thinkSteps } from './ChatThinking.jsx'
 import Icon from './Icon.jsx'
 import LimitNotice from './LimitNotice.jsx'
@@ -181,7 +182,9 @@ export default function ChatView() {
       setMessages((m) => m.map((x, i) => (i === m.length - 1 && x.status === 'running' ? { ...x, ...patch } : x)))
     try {
       const { text, via } = await chat({
-        messages: history.filter((x) => x.status !== 'failed').map((x) => ({ role: x.role, content: x.api || x.content })),
+        messages: history
+          .filter((x) => x.status !== 'failed')
+          .map((x) => ({ role: x.role, content: x.role === 'assistant' ? splitThink(x.content).answer : x.api || x.content })),
         model,
         web,
         signal: ctrl.signal,
@@ -317,12 +320,15 @@ export default function ChatView() {
                 )}
                 {m.content &&
                   (m.status === 'done' ? (
+                    <>
+                    <ChatReasoning text={splitThink(m.content).think} />
                     <ChatMarkdown
-                      text={m.content}
+                      text={splitThink(m.content).answer}
                       animate={Boolean(m.fresh)}
                       onProgress={followTyping}
                       onDone={() => setMessages((list) => list.map((x, j) => (j === i ? { ...x, fresh: false } : x)))}
                     />
+                    </>
                   ) : (
                     <p className="chat-text">{m.content}</p>
                   ))}
