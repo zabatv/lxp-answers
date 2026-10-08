@@ -90,13 +90,13 @@ export async function wakeProxy() {
   }
 }
 
-async function chatOnce({ messages, model, signal }) {
+async function chatOnce({ messages, model, signal, web }) {
   let res
   try {
     res = await fetch(PROXY.replace(/\/$/, '') + '/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, model: model || getModel() }),
+      body: JSON.stringify({ messages, model: model || getModel(), web: Boolean(web) }),
       signal,
     })
   } catch (err) {
@@ -119,12 +119,13 @@ async function chatOnce({ messages, model, signal }) {
 
 // Чат: вся история уходит на прокси, ответ — { text (markdown), via }.
 // onRetry(attempt) вызывается перед каждой повторной попыткой (2…CHAT_ATTEMPTS).
-export async function chat({ messages, model, signal, onRetry }) {
+// web — разрешить поиск Google (работает через Gemini с инструментами)
+export async function chat({ messages, model, signal, onRetry, web }) {
   if (!PROXY) throw new Error(NO_PROXY)
   for (let attempt = 1; ; attempt++) {
     const started = Date.now()
     try {
-      return await chatOnce({ messages, model, signal })
+      return await chatOnce({ messages, model, signal, web })
     } catch (err) {
       if (!(err instanceof Asleep)) throw err
       if (attempt >= CHAT_ATTEMPTS) {

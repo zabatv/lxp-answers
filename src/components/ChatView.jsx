@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Attachment01Icon, BookOpen01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
+import { Attachment01Icon, BookOpen01Icon, Delete02Icon, Globe02Icon } from '@hugeicons/core-free-icons'
 import { readyDisciplines } from '../lib/lessons.js'
 import { CHAT_ATTEMPTS, chat, hasProxy, wakeProxy } from '../lib/deepseek.js'
 import AiIcon from './AiIcon.jsx'
@@ -17,6 +17,9 @@ const MODELS = [
 ]
 // запасные модели появляются, если на прокси задан ключ провайдера
 const PROVIDER_TAGS = { gemini: 'Google', groq: 'Быстрая', openrouter: 'Открытая' }
+// с ключом Gemini появляется режим с инструментами: поиск по ответам сайта, проверка кодом, Google
+const TOOLS_MODEL = { key: 'gemini-tools', name: 'LXP AI + инструменты', tag: 'Сайт · код' }
+const WEB = 'Поиск в Google'
 
 // команды раскрываются в просьбу для LXP AI; в чате видно то, что набрал пользователь
 const COMMANDS = [
@@ -99,7 +102,8 @@ export default function ChatView() {
       alive = false
     }
   }, [])
-  const models = useMemo(() => [...MODELS, ...extraModels], [extraModels])
+  const hasTools = extraModels.some((m) => m.key === 'gemini')
+  const models = useMemo(() => (hasTools ? [TOOLS_MODEL, ...MODELS, ...extraModels] : [...MODELS, ...extraModels]), [extraModels, hasTools])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -117,6 +121,7 @@ export default function ChatView() {
   const sources = useMemo(
     () => [
       { key: 'files', name: 'Файлы с компьютера', description: 'Код или текст задания', icon: Attachment01Icon, attach: true },
+      ...(hasTools ? [{ key: 'web', name: WEB, description: 'Свежая информация из интернета', icon: Globe02Icon }] : []),
       ...readyDisciplines.map((d) => ({
         key: d.id,
         name: d.name,
@@ -124,7 +129,7 @@ export default function ChatView() {
         icon: BookOpen01Icon,
       })),
     ],
-    []
+    [hasTools]
   )
 
   // «+» → «Файлы»: открываем системный диалог, PromptBar получает имена файлов
@@ -150,7 +155,7 @@ export default function ChatView() {
 
   // то, что уходит в LXP AI: команда раскрыта, файлы и упомянутые дисциплины — в контексте
   const buildContent = (text, attachments) => {
-    let body = text
+    let body = text.replace(`@${WEB}`, '').replace(/\s{2,}/g, ' ').trim()
     const cmd = COMMANDS.find((c) => body === c.name || body.startsWith(c.name + ' '))
     if (cmd) body = `${cmd.prompt} ${body.slice(cmd.name.length).trim()}`.trim()
 
@@ -167,7 +172,7 @@ export default function ChatView() {
     return extra.length ? `${body}\n\n---\n${extra.join('\n\n')}` : body
   }
 
-  const ask = async (history, model) => {
+  const ask = async (history, model, web = false) => {
     const ctrl = new AbortController()
     abortRef.current = ctrl
     setBusy(true)
@@ -178,6 +183,7 @@ export default function ChatView() {
       const { text, via } = await chat({
         messages: history.filter((x) => x.status !== 'failed').map((x) => ({ role: x.role, content: x.api || x.content })),
         model,
+        web,
         signal: ctrl.signal,
         onRetry: (attempt) => finish({ attempt }),
       })
@@ -198,7 +204,7 @@ export default function ChatView() {
     const userMsg = { role: 'user', content: shown, files: attachments, ...(api !== shown ? { api } : {}) }
     const history = [...messages.filter((x) => x.status !== 'cancelled' || x.content), userMsg]
     setMessages((m) => [...m, userMsg])
-    ask(history, model?.key || MODELS[0].key)
+    ask(history, model?.key || models[0].key, shown.includes(`@${WEB}`))
   }
 
   const onStop = () => abortRef.current?.abort()
@@ -307,7 +313,8 @@ export default function ChatView() {
           sources={sources}
           commands={COMMANDS}
           models={models}
-          defaultModel={MODELS[0].key}
+          key={models[0].key}
+          defaultModel={models[0].key}
           efforts={[]}
           busy={busy}
           onSend={onSend}

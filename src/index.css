@@ -2646,3 +2646,4 @@ button {
   color: var(--text-3);
   font-size: 12px;
 }
+.chat-site-link { color: var(--accent-2) !important; }

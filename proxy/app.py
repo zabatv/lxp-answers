@@ -83,7 +83,7 @@ PROVIDERS = {
         "name": "Gemini",
         "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         "key": os.environ.get("GEMINI_API_KEY", "").strip(),
-        "model": os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip(),
+        "model": os.environ.get("GEMINI_MODEL", "gemini-3.5-flash").strip(),
     },
     "groq": {
         "name": "Groq",
@@ -125,6 +125,197 @@ def provider_chat(pid, system, turns, temperature=0.4):
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"{p['name']}: HTTP {exc.code} {exc.read().decode('utf-8', 'ignore')[:200]}") from None
     return (data["choices"][0]["message"].get("content") or "").strip()
+
+
+# ---------- Gemini с инструментами: поиск по ответам сайта, выполнение кода, поиск Google ----------
+SITE_URL = os.environ.get("SITE_URL", "https://lxp-answers.onrender.com").strip().rstrip("/")
+_ANSWERS = {"t": 0, "data": None}
+
+
+def site_answers():
+    """answers.json со сайта (выгружается при сборке), кэш 10 минут."""
+    if _ANSWERS["data"] is None or time.time() - _ANSWERS["t"] > 600:
+        with urllib.request.urlopen(SITE_URL + "/answers.json", timeout=20) as r:
+            _ANSWERS["data"] = json.loads(r.read().decode("utf-8"))
+            _ANSWERS["t"] = time.time()
+    return _ANSWERS["data"]
+
+
+def _words(text):
+    import re
+
+    out = []
+    for w in re.findall(r"[a-zа-яё0-9#+]+", text.lower().replace("ё", "е")):
+        if len(w) >= 3 or w.isdigit():
+            out.append(w[:6])  # грубая основа слова: «матрицы», «матрицу» → «матриц»
+    return out
+
+
+def search_answers(query, limit=6):
+    q = set(_words(query))
+    if not q:
+        return []
+    found = []
+    for d in site_answers()["disciplines"]:
+        dn = set(_words(d["name"]))
+        for a in d["answers"]:
+            fields = (
+                (3, a["title"]),
+                (2, a["task"]),
+                (1, " ".join(f["name"] for f in a["files"])),
+                (0.3, " ".join(f["code"][:3000] for f in a["files"])),
+            )
+            score = sum(w * len(q & set(_words(t))) for w, t in fields) + 2 * len(q & dn)
+            if score:
+                found.append((score, d, a))
+    found.sort(key=lambda x: -x[0])
+    return [
+        {"id": f"{d['id']}::{a['id']}", "discipline": d["name"], "title": a["title"], "task": a["task"][:300],
+         "points": a["points"], "files": [f["name"] for f in a["files"]]}
+        for _, d, a in found[:limit]
+    ]
+
+
+def get_answer(answer_id):
+    did, _, aid = str(answer_id).partition("::")
+    for d in site_answers()["disciplines"]:
+        if d["id"] != did:
+            continue
+        for a in d["answers"]:
+            if a["id"] == aid:
+                budget, files = 30000, []
+                for f in a["files"]:
+                    code = f["code"][: max(0, min(8000, budget))]
+                    budget -= len(code)
+                    files.append({"name": f["name"], "lang": f["lang"], "code": code,
+                                  "truncated": len(code) < len(f["code"])})
+                return {"id": answer_id, "discipline": d["name"], "teacher": d["teacher"], "title": a["title"],
+                        "task": a["task"], "note": a["note"], "unique": a["unique"], "points": a["points"],
+                        "link": f"#/{did}/{aid}", "files": files}
+    return {"error": f"задание {answer_id} не найдено"}
+
+
+SITE_TOOLS = {"functionDeclarations": [
+    {
+        "name": "search_answers",
+        "description": "Ищет задания с готовыми решениями на сайте студента (по названию, условию, файлам). "
+                       "Вызывай, когда вопрос похож на задание из курса: КТ, практическая, тема дисциплины.",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string", "description": "ключевые слова по-русски, напр. «обратная матрица КТ»"}},
+            "required": ["query"]},
+    },
+    {
+        "name": "get_answer",
+        "description": "Возвращает задание целиком: условие, пометки и файлы решения. id берётся из search_answers.",
+        "parameters": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]},
+    },
+]}
+
+TOOLS_SYSTEM = CHAT_SYSTEM + (
+    " У тебя есть инструменты. Если вопрос про задание курса — сначала найди его на сайте (search_answers, "
+    "потом get_answer) и объясняй тем же методом и в тех же обозначениях, что в решении сайта; "
+    "в конце дай ссылку на задание в виде [название](link). Вычисления проверяй выполнением кода. "
+    "Если пользователь просит свои данные/вариант — пересчитай заново, не подгоняй под ответ сайта."
+)
+
+
+def _gemini_call(body):
+    p = PROVIDERS["gemini"]
+    req = urllib.request.Request(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{p['model']}:generateContent",
+        data=json.dumps(body).encode(),
+        method="POST",
+        headers={"x-goog-api-key": p["key"], "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=150) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "ignore")
+        try:
+            detail = json.loads(detail)["error"]["message"]
+        except Exception:  # noqa: BLE001
+            pass
+        err = RuntimeError(f"Gemini: HTTP {exc.code} — {detail[:240]}")
+        err.status = exc.code
+        raise err from None
+
+
+def gemini_tools_chat(messages, web=False):
+    """Диалог с Gemini и инструментами. Возвращает (текст markdown, кто ответил)."""
+    if not PROVIDERS["gemini"]["key"]:
+        raise RuntimeError("Gemini не подключён (нет GEMINI_API_KEY в настройках прокси)")
+    contents = [
+        {"role": "model" if m.get("role") == "assistant" else "user", "parts": [{"text": str(m.get("content", ""))}]}
+        for m in messages[-20:] if isinstance(m, dict)
+    ]
+    tools = [SITE_TOOLS, {"codeExecution": {}}]
+    notes = []
+    if web:
+        tools.append({"googleSearch": {}})
+    out, checks, sources, used = [], [], [], []
+    for _ in range(6):  # модель может несколько раз подряд вызвать функции
+        body = {
+            "systemInstruction": {"parts": [{"text": TOOLS_SYSTEM}]},
+            "contents": contents,
+            "tools": tools,
+            # без этого Gemini не даёт смешивать встроенные инструменты (код, поиск) с нашими функциями
+            "toolConfig": {"includeServerSideToolInvocations": True},
+        }
+        try:
+            data = _gemini_call(body)
+        except RuntimeError as exc:
+            if web and getattr(exc, "status", 0) in (400, 429) and {"googleSearch": {}} in tools:
+                tools = [t for t in tools if t != {"googleSearch": {}}]
+                notes.append("_Поиск Google сейчас недоступен на этом ключе — ответ без него._")
+                continue
+            raise
+        cand = (data.get("candidates") or [{}])[0]
+        content = cand.get("content") or {"role": "model", "parts": []}
+        parts = content.get("parts") or []
+        calls = [p["functionCall"] for p in parts if "functionCall" in p]
+        for p in parts:
+            if "executableCode" in p:
+                checks.append(f"```python\n{p['executableCode'].get('code', '').strip()}\n```")
+            elif "codeExecutionResult" in p:
+                res = (p["codeExecutionResult"].get("output") or "").strip()
+                if res:
+                    checks.append(f"Вывод:\n```\n{res}\n```")
+            elif "text" in p and not p.get("thought") and not calls:
+                out.append(p["text"].strip())
+        for chunk in (cand.get("groundingMetadata") or {}).get("groundingChunks", []) or []:
+            web_src = chunk.get("web") or {}
+            if web_src.get("uri") and web_src not in sources:
+                sources.append(web_src)
+        if not calls:
+            break
+        contents.append(content)  # вместе с thoughtSignature — Gemini этого требует
+        responses = []
+        for c in calls:
+            args = c.get("args") or {}
+            try:
+                if c.get("name") == "search_answers":
+                    result = {"results": search_answers(args.get("query", ""))}
+                    used.append(f"поиск: {args.get('query', '')}")
+                elif c.get("name") == "get_answer":
+                    result = get_answer(args.get("id", ""))
+                    used.append(f"задание: {args.get('id', '')}")
+                else:
+                    result = {"error": "нет такой функции"}
+            except Exception as exc:  # noqa: BLE001
+                result = {"error": f"не удалось получить ответы сайта: {exc}"}
+            responses.append({"functionResponse": {"name": c.get("name"), "response": result}})
+        contents.append({"role": "user", "parts": responses})
+    text = "\n\n".join(x for x in out if x)
+    if checks:  # код, которым модель проверяла вычисления, — в конце, чтобы не мешал читать
+        text += "\n\n---\n\n**Проверка кодом**\n\n" + "\n\n".join(checks)
+    if sources:
+        text += "\n\n**Источники:** " + " · ".join(f"[{s.get('title') or s['uri']}]({s['uri']})" for s in sources[:6])
+    if notes:
+        text += "\n\n" + "\n".join(notes)
+    if used:
+        record("tools", True, model="gemini", detail="; ".join(used))
+    return text.strip(), "Gemini + инструменты"
 
 
 def with_fallback(model, deepseek_call, provider_call):
@@ -376,7 +567,10 @@ class Handler(BaseHTTPRequestHandler):
             model = str(body.get("model", "deepseek-chat"))
             t0 = time.time()
             try:
-                text, via = chat(messages, model)
+                if model == "gemini-tools" or body.get("web"):
+                    text, via = gemini_tools_chat(messages, web=bool(body.get("web")))
+                else:
+                    text, via = chat(messages, model)
             except Exception as exc:  # noqa: BLE001
                 err = explain(exc)
                 record("chat", False, int((time.time() - t0) * 1000), model, err)

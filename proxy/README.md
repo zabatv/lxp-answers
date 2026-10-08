@@ -16,9 +16,17 @@ proof-of-work). Токен хранится в переменной окруже
 
 | Переменная | Где взять ключ | Модель по умолчанию (`*_MODEL` — заменить) |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | aistudio.google.com → Get API key | `gemini-3.8-flash` |
+| `GEMINI_API_KEY` | aistudio.google.com → Get API key | `gemini-3.5-flash` |
 | `GROQ_API_KEY` | console.groq.com → API Keys | `llama-3.3-70b-versatile` |
 | `OPENROUTER_API_KEY` | openrouter.ai → Keys | `meta-llama/llama-3.3-70b-instruct:free` |
+
+## LXP AI + инструменты (нужен GEMINI_API_KEY)
+Модель «LXP AI + инструменты» в чате работает через Gemini и умеет:
+- искать по ответам сайта (`search_answers`, `get_answer`) — сайт при сборке выкладывает
+  `answers.json`, прокси берёт его с `SITE_URL` (по умолчанию `https://lxp-answers.onrender.com`);
+- проверять вычисления выполнением кода;
+- искать в Google — если в сообщении выбран источник «@Поиск в Google» (на бесплатном ключе
+  может упираться в лимит, тогда ответ придёт без поиска).
 
 ## Админка
 - `ADMIN_PASSWORD` — пароль админки. Без этой переменной админка выключена. В коде пароля нет.

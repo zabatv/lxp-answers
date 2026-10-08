@@ -90,7 +90,13 @@ function CodeBlock({ node }) {
 
 const COMPONENTS = {
   pre: CodeBlock,
-  a: ({ node, ...props }) => <a {...props} target="_blank" rel="noreferrer noopener" />,
+  // ссылки на задания сайта (#/math/hm_final) открываются здесь же, остальные — в новой вкладке
+  a: ({ node, href = '', ...props }) =>
+    href.startsWith('#/') ? (
+      <a {...props} href={href} className="chat-site-link" />
+    ) : (
+      <a {...props} href={href} target="_blank" rel="noreferrer noopener" />
+    ),
   table: ({ node, ...props }) => (
     <div className="chat-table">
       <table {...props} />
