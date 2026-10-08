@@ -2647,3 +2647,6 @@ button {
   font-size: 12px;
 }
 .chat-site-link { color: var(--accent-2) !important; }
+.chat-thinking {
+  min-height: 22px;
+}

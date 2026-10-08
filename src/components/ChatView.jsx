@@ -4,6 +4,7 @@ import { readyDisciplines } from '../lib/lessons.js'
 import { CHAT_ATTEMPTS, chat, hasProxy, wakeProxy } from '../lib/ai.js'
 import AiIcon from './AiIcon.jsx'
 import ChatMarkdown from './ChatMarkdown.jsx'
+import ChatThinking, { thinkSteps } from './ChatThinking.jsx'
 import Icon from './Icon.jsx'
 import PromptBar from './reactbits/PromptBar.jsx'
 import StatusMark from './reactbits/StatusMark.jsx'
@@ -164,7 +165,8 @@ export default function ChatView() {
     const ctrl = new AbortController()
     abortRef.current = ctrl
     setBusy(true)
-    setMessages((m) => [...m, { role: 'assistant', content: '', status: 'running', model }])
+    const startedAt = Date.now()
+    setMessages((m) => [...m, { role: 'assistant', content: '', status: 'running', model, startedAt, steps: thinkSteps(model, web) }])
     const finish = (patch) =>
       setMessages((m) => m.map((x, i) => (i === m.length - 1 && x.status === 'running' ? { ...x, ...patch } : x)))
     try {
@@ -175,7 +177,13 @@ export default function ChatView() {
         signal: ctrl.signal,
         onRetry: (attempt) => finish({ attempt }),
       })
-      finish({ content: text || 'Пустой ответ — попробуй переформулировать вопрос.', status: 'done', fresh: true, via })
+      finish({
+        content: text || 'Пустой ответ — попробуй переформулировать вопрос.',
+        status: 'done',
+        fresh: true,
+        via,
+        thinkMs: Date.now() - startedAt,
+      })
     } catch (err) {
       if (ctrl.signal.aborted) finish({ status: 'cancelled' })
       else finish({ content: err.message || String(err), status: 'failed' })
@@ -262,19 +270,26 @@ export default function ChatView() {
               </div>
             ) : (
               <div key={i} className="chat-msg chat-msg--ai" data-status={m.status}>
-                <StatusMark
-                  status={m.status}
-                  label={
-                    m.status === 'running' && m.attempt > 1
-                      ? `Сервер просыпается… попытка ${m.attempt} из ${CHAT_ATTEMPTS}`
-                      : STATUS_LABEL[m.status]
-                  }
-                  color="var(--muted)"
-                  doneColor="#45e6b0"
-                  errorColor="#ff6b81"
-                  size={16}
-                  fontSize={13}
-                />
+                {(m.status === 'running' || (m.status === 'done' && m.thinkMs != null)) && m.steps ? (
+                  <ChatThinking
+                    working={m.status === 'running'}
+                    steps={m.steps}
+                    startedAt={m.startedAt}
+                    elapsedMs={m.thinkMs}
+                    wakeAttempt={m.attempt}
+                    attempts={CHAT_ATTEMPTS}
+                  />
+                ) : (
+                  <StatusMark
+                    status={m.status}
+                    label={STATUS_LABEL[m.status]}
+                    color="var(--muted)"
+                    doneColor="#45e6b0"
+                    errorColor="#ff6b81"
+                    size={16}
+                    fontSize={13}
+                  />
+                )}
                 {m.content &&
                   (m.status === 'done' ? (
                     <ChatMarkdown
