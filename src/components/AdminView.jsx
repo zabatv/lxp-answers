@@ -3,17 +3,23 @@ import {
   Activity01Icon,
   Delete02Icon,
   FlashIcon,
-  Key01Icon,
   RefreshIcon,
   ServerStack01Icon,
   ShieldKeyIcon,
 } from '@hugeicons/core-free-icons'
-import { adminCheck, adminClear, adminSetToken, adminStatus, hasProxy, ping } from '../lib/admin.js'
+import { adminCheck, adminClear, adminStatus, hasProxy, ping } from '../lib/admin.js'
 import { plural, readyDisciplines } from '../lib/lessons.js'
 import Icon from './Icon.jsx'
 import StatusMark from './reactbits/StatusMark.jsx'
 
 const REFRESH_MS = 20_000
+const MODEL_NAMES = {
+  tools: 'LXP AI',
+  'tools + Google': 'LXP AI + Google',
+  fast: 'LXP AI Быстрый',
+  'fast + Google': 'LXP AI + Google',
+  refine: 'Правка кода',
+}
 
 function uptime(sec) {
   if (sec < 60) return `${sec} с`
@@ -23,7 +29,7 @@ function uptime(sec) {
   return h < 24 ? `${h} ч ${m % 60} мин` : `${Math.floor(h / 24)} д ${h % 24} ч`
 }
 const timeOf = (iso) => new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-const KIND = { chat: 'Чат', refine: 'Правка кода', check: 'Проверка', token: 'Токен', admin: 'Вход' }
+const KIND = { chat: 'Чат', refine: 'Правка кода', check: 'Проверка', tools: 'Инструменты', admin: 'Вход' }
 
 function Tile({ label, value, hint, tone }) {
   return (
@@ -116,9 +122,9 @@ function LocalTools() {
   const read = () => {
     try {
       const chat = JSON.parse(localStorage.getItem('lxp-chat') || '[]')
-      return { chat: Array.isArray(chat) ? chat.length : 0, model: localStorage.getItem('deepseek_model') || 'по умолчанию' }
+      return { chat: Array.isArray(chat) ? chat.length : 0 }
     } catch {
-      return { chat: 0, model: '—' }
+      return { chat: 0 }
     }
   }
   const [info, setInfo] = useState(read)
@@ -143,13 +149,6 @@ function LocalTools() {
             <span className="btn-text">Очистить</span>
           </button>
         </div>
-        <div className="admin-row">
-          <span>Модель LXP AI у файлов: {info.model === 'deepseek-reasoner' ? 'Думающая' : 'обычная'}</span>
-          <button type="button" className="btn" onClick={() => run(() => localStorage.removeItem('deepseek_model'))}>
-            <Icon icon={RefreshIcon} size={15} />
-            <span className="btn-text">Сбросить</span>
-          </button>
-        </div>
       </div>
     </section>
   )
@@ -161,8 +160,6 @@ function ProxyPanel({ password, onLock }) {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
   const [check, setCheck] = useState(null) // {state, text}
-  const [token, setToken] = useState('')
-  const [tokenRes, setTokenRes] = useState(null) // {state, text}
   const [auto, setAuto] = useState(true)
 
   const load = useCallback(async () => {
@@ -187,10 +184,10 @@ function ProxyPanel({ password, onLock }) {
     return () => clearInterval(t)
   }, [auto, load])
 
-  const runCheck = async (model = 'deepseek-chat', name = 'DeepSeek') => {
-    setCheck({ state: 'running', text: `${name}: проверяю и задаю тестовый вопрос…` })
+  const runCheck = async () => {
+    setCheck({ state: 'running', text: 'Gemini: задаю тестовый вопрос…' })
     try {
-      const r = await adminCheck(password, model)
+      const r = await adminCheck(password)
       setCheck(
         r.ok
           ? { state: 'done', text: `${r.detail}. Ответ за ${(r.ms / 1000).toFixed(1)} с: «${r.answer}»` }
@@ -202,21 +199,6 @@ function ProxyPanel({ password, onLock }) {
     load()
   }
 
-  const saveToken = async (e) => {
-    e.preventDefault()
-    setTokenRes({ state: 'running', text: 'Проверяю новый токен у DeepSeek…' })
-    try {
-      const r = await adminSetToken(password, token)
-      setToken('')
-      setTokenRes({
-        state: 'done',
-        text: `Токен заменён (отпечаток ${r.token.hash}). ${r.persisted ? 'Сохранён в настройках Render.' : `Внимание: ${r.note}.`}`,
-      })
-    } catch (e2) {
-      setTokenRes({ state: 'failed', text: e2.message })
-    }
-    load()
-  }
 
   const clearStats = async () => {
     try {
@@ -258,27 +240,21 @@ function ProxyPanel({ password, onLock }) {
           <div className="admin-tiles">
             <Tile label="Работает без перезапуска" value={uptime(status.uptime)} hint={`с ${timeOf(status.startedAt)}`} />
             <Tile
-              label="Токен DeepSeek"
-              value={status.token.set ? `${status.token.length} симв.` : 'не задан'}
-              hint={status.token.set ? `отпечаток ${status.token.hash}` : undefined}
-              tone={status.token.set ? undefined : 'bad'}
+              label="Gemini"
+              value={status.gemini.on ? 'подключён' : 'нет ключа'}
+              hint={status.gemini.model}
+              tone={status.gemini.on ? undefined : 'bad'}
             />
             <Tile label="Запросов в чат" value={s.chat} hint={s.avgChatMs ? `в среднем ${(s.avgChatMs / 1000).toFixed(1)} с` : undefined} />
             <Tile label="Правок кода" value={s.refine} />
             <Tile label="Ошибок" value={s.errors} tone={s.errors ? 'bad' : undefined} />
-            <Tile
-              label="Смена токена"
-              value={status.persist ? 'навсегда' : 'до перезапуска'}
-              hint={status.persist ? 'через Render API' : 'нет RENDER_API_KEY'}
-              tone={status.persist ? undefined : 'warn'}
-            />
           </div>
         )}
         {models.length > 0 && (
           <div className="admin-models">
             {models.map(([m, n]) => (
               <div key={m} className="admin-model">
-                <span>{m === 'deepseek-reasoner' ? 'LXP AI Думающая' : m === 'deepseek-chat' ? 'LXP AI' : m}</span>
+                <span>{MODEL_NAMES[m] || m}</span>
                 <span className="admin-bar">
                   <span style={{ width: `${(n / maxModel) * 100}%` }} />
                 </span>
@@ -287,67 +263,15 @@ function ProxyPanel({ password, onLock }) {
             ))}
           </div>
         )}
-        {status?.providers && (
-          <div className="admin-providers">
-            <span className="admin-tile-label">
-              Запасные модели {status.fallback ? '— подменяют DeepSeek, если он не ответил' : '(подмена выключена)'}
-            </span>
-            {status.providers.map((p) => (
-              <div key={p.id} className="admin-provider" data-on={p.on ? '' : undefined}>
-                <span className="admin-dot" data-ok={p.on ? '' : undefined} />
-                <strong>{p.name}</strong>
-                <span className="admin-provider-model">{p.model}</span>
-                {p.on ? (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={check?.state === 'running'}
-                    onClick={() => runCheck(p.id, p.name)}
-                  >
-                    Проверить
-                  </button>
-                ) : (
-                  <span className="admin-provider-off">нет ключа {p.id.toUpperCase()}_API_KEY</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
         <div className="admin-row admin-row--check">
           <button type="button" className="btn btn-primary" onClick={() => runCheck()} disabled={check?.state === 'running'}>
             <Icon icon={FlashIcon} size={15} />
-            Проверить DeepSeek
+            Проверить Gemini
           </button>
           {check && <StatusMark status={check.state} label={check.text} color="var(--muted)" doneColor="#45e6b0" errorColor="#ff6b81" size={16} fontSize={13.5} />}
         </div>
       </section>
 
-      <section className="admin-card">
-        <h2 className="admin-h2">
-          <Icon icon={Key01Icon} size={18} /> Токен DeepSeek
-        </h2>
-        <p className="admin-muted">
-          На chat.deepseek.com нажми F12 → Console и выполни <code>JSON.parse(localStorage.userToken).value</code>, потом
-          вставь результат сюда. Прокси сначала проверит токен у DeepSeek: если тот не подойдёт, останется старый.
-        </p>
-        <form className="admin-token" onSubmit={saveToken}>
-          <input
-            className="admin-input"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="Новый userToken"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-          />
-          <button type="submit" className="btn btn-primary" disabled={!token.trim() || tokenRes?.state === 'running'}>
-            Заменить токен
-          </button>
-        </form>
-        {tokenRes && (
-          <StatusMark status={tokenRes.state} label={tokenRes.text} color="var(--muted)" doneColor="#45e6b0" errorColor="#ff6b81" size={16} fontSize={13.5} />
-        )}
-      </section>
 
       <section className="admin-card">
         <div className="admin-card-head">
@@ -435,7 +359,7 @@ export default function AdminView({ onSelect }) {
       <header className="admin-head">
         <div>
           <h1>Админка</h1>
-          <p>Состояние LXP AI, токен DeepSeek, журнал запросов и сводка по ответам</p>
+          <p>Состояние LXP AI (Gemini), журнал запросов и сводка по ответам</p>
         </div>
         {online && (
           <span className="admin-pill" data-state={server ? (server.ok ? 'ok' : 'bad') : 'wait'}>

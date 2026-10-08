@@ -9,7 +9,7 @@ import {
   Undo02Icon,
   UserEdit01Icon,
 } from '@hugeicons/core-free-icons'
-import { getModel, setModel, refineCode, DEFAULT_MODEL } from '../lib/deepseek.js'
+import { refineCode } from '../lib/ai.js'
 import { downloadFile } from '../lib/files.js'
 import { highlight, langMeta } from '../lib/highlight.js'
 import { buildPreview } from '../lib/preview.js'
@@ -36,7 +36,6 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
   const [panel, setPanel] = useState(false)
   const [running, setRunning] = useState(false)
   const [prompt, setPrompt] = useState('')
-  const [model, setModelState] = useState(getModel())
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [steps, setSteps] = useState([])
@@ -73,7 +72,6 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
   const apply = async () => {
     setErr('')
     if (!prompt.trim()) { setErr('Опишите, что изменить'); return }
-    setModel(model)
     setBusy(true)
     setSteps([THINK_STEPS[0]])
     let idx = 1
@@ -86,7 +84,7 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
       }
     }, Math.floor(2000 / THINK_STEPS.length))
     try {
-      const out = await refineCode({ code, lang, instruction: prompt, model, context })
+      const out = await refineCode({ code, lang, instruction: prompt, context })
       if (out) onChange(out)
       setPrompt('')
       setPanel(false)
@@ -196,13 +194,6 @@ export default function CodeBlock({ name, lang, code, original, onChange, files,
               <AiIcon />
               Что изменить в коде?
             </span>
-            <label className="ds-model">
-              <span>Модель</span>
-              <select className="select" value={model} onChange={(e) => setModelState(e.target.value)}>
-                <option value={DEFAULT_MODEL}>LXP AI</option>
-                <option value="deepseek-reasoner">LXP AI Думающая</option>
-              </select>
-            </label>
           </div>
           <textarea
             className="textarea"

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Attachment01Icon, BookOpen01Icon, Delete02Icon, Globe02Icon } from '@hugeicons/core-free-icons'
 import { readyDisciplines } from '../lib/lessons.js'
-import { CHAT_ATTEMPTS, chat, hasProxy, wakeProxy } from '../lib/deepseek.js'
+import { CHAT_ATTEMPTS, chat, hasProxy, wakeProxy } from '../lib/ai.js'
 import AiIcon from './AiIcon.jsx'
 import ChatMarkdown from './ChatMarkdown.jsx'
 import Icon from './Icon.jsx'
@@ -11,14 +11,11 @@ import StatusMark from './reactbits/StatusMark.jsx'
 const HISTORY_KEY = 'lxp-chat'
 const MAX_FILE = 100_000 // символов из одного прикреплённого файла
 
+// LXP AI работает на Gemini: «tools» ищет по ответам сайта и проверяет вычисления кодом, «fast» — просто отвечает
 const MODELS = [
-  { key: 'deepseek-chat', name: 'LXP AI', tag: 'Быстрая' },
-  { key: 'deepseek-reasoner', name: 'LXP AI Думающая', tag: 'Точнее' },
+  { key: 'tools', name: 'LXP AI', tag: 'Сайт · код' },
+  { key: 'fast', name: 'LXP AI Быстрый', tag: 'Без инструментов' },
 ]
-// запасные модели появляются, если на прокси задан ключ провайдера
-const PROVIDER_TAGS = { gemini: 'Google', groq: 'Быстрая', openrouter: 'Открытая' }
-// с ключом Gemini появляется режим с инструментами: поиск по ответам сайта, проверка кодом, Google
-const TOOLS_MODEL = { key: 'gemini-tools', name: 'LXP AI + инструменты', tag: 'Сайт · код' }
 const WEB = 'Поиск в Google'
 
 // команды раскрываются в просьбу для LXP AI; в чате видно то, что набрал пользователь
@@ -65,7 +62,6 @@ const STATUS_LABEL = {
 export default function ChatView() {
   const [messages, setMessages] = useState(loadHistory)
   const [busy, setBusy] = useState(false)
-  const [extraModels, setExtraModels] = useState([])
   const files = useRef(new Map()) // имя прикреплённого файла → его текст
   const abortRef = useRef(null)
   const fileInput = useRef(null)
@@ -94,16 +90,8 @@ export default function ChatView() {
 
   // сервер на Render мог уснуть — будим его сразу, пока пользователь пишет вопрос
   useEffect(() => {
-    let alive = true
-    wakeProxy().then((list) => {
-      if (alive) setExtraModels(list.map((p) => ({ key: p.id, name: p.name, tag: PROVIDER_TAGS[p.id] || 'Запасная' })))
-    })
-    return () => {
-      alive = false
-    }
+    wakeProxy()
   }, [])
-  const hasTools = extraModels.some((m) => m.key === 'gemini')
-  const models = useMemo(() => (hasTools ? [TOOLS_MODEL, ...MODELS, ...extraModels] : [...MODELS, ...extraModels]), [extraModels, hasTools])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -121,7 +109,7 @@ export default function ChatView() {
   const sources = useMemo(
     () => [
       { key: 'files', name: 'Файлы с компьютера', description: 'Код или текст задания', icon: Attachment01Icon, attach: true },
-      ...(hasTools ? [{ key: 'web', name: WEB, description: 'Свежая информация из интернета', icon: Globe02Icon }] : []),
+      { key: 'web', name: WEB, description: 'Свежая информация из интернета', icon: Globe02Icon },
       ...readyDisciplines.map((d) => ({
         key: d.id,
         name: d.name,
@@ -129,7 +117,7 @@ export default function ChatView() {
         icon: BookOpen01Icon,
       })),
     ],
-    [hasTools]
+    []
   )
 
   // «+» → «Файлы»: открываем системный диалог, PromptBar получает имена файлов
@@ -204,7 +192,7 @@ export default function ChatView() {
     const userMsg = { role: 'user', content: shown, files: attachments, ...(api !== shown ? { api } : {}) }
     const history = [...messages.filter((x) => x.status !== 'cancelled' || x.content), userMsg]
     setMessages((m) => [...m, userMsg])
-    ask(history, model?.key || models[0].key, shown.includes(`@${WEB}`))
+    ask(history, model?.key || MODELS[0].key, shown.includes(`@${WEB}`))
   }
 
   const onStop = () => abortRef.current?.abort()
@@ -279,9 +267,7 @@ export default function ChatView() {
                   label={
                     m.status === 'running' && m.attempt > 1
                       ? `Сервер просыпается… попытка ${m.attempt} из ${CHAT_ATTEMPTS}`
-                      : m.status === 'done' && m.via && m.via !== 'DeepSeek'
-                        ? `Ответ готов · ${m.via}`
-                        : STATUS_LABEL[m.status]
+                      : STATUS_LABEL[m.status]
                   }
                   color="var(--muted)"
                   doneColor="#45e6b0"
@@ -312,9 +298,8 @@ export default function ChatView() {
           placeholder="Спроси LXP AI…  / — команды, @ — источники"
           sources={sources}
           commands={COMMANDS}
-          models={models}
-          key={models[0].key}
-          defaultModel={models[0].key}
+          models={MODELS}
+          defaultModel={MODELS[0].key}
           efforts={[]}
           busy={busy}
           onSend={onSend}

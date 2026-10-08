@@ -13,7 +13,7 @@ import Icon from './Icon.jsx'
 
 const LANG_ALIAS = { 'c#': 'csharp', cs: 'csharp', htm: 'html', js: 'javascript', jsx: 'javascript', ts: 'javascript' }
 
-// DeepSeek пишет формулы как \( … \) и \[ … \] — remark-math понимает только $ и $$
+// модели часто пишут формулы как \( … \) и \[ … \] — remark-math понимает только $ и $$
 function normalizeMath(text) {
   return text
     .replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => `\n$$\n${m.trim()}\n$$\n`)

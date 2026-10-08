@@ -1,6 +1,6 @@
 // Запросы админки к прокси. Пароль админки живёт только в памяти вкладки и уходит
 // в теле запроса по HTTPS; проверяет его прокси (переменная ADMIN_PASSWORD на Render).
-import { hasProxy, proxyBase } from './deepseek.js'
+import { hasProxy, proxyBase } from './ai.js'
 
 export { hasProxy }
 
@@ -13,7 +13,7 @@ async function post(action, body) {
       body: JSON.stringify(body),
     })
   } catch {
-    throw new Error('Нет связи с прокси — он мог уснуть. Нажми «Разбудить» и подожди минуту.')
+    throw new Error('Нет связи с прокси — он мог уснуть. Подожди минуту и нажми «Обновить».')
   }
   let data = null
   try { data = await res.json() } catch { /* не JSON — Render ещё будит сервер */ }
@@ -26,8 +26,7 @@ async function post(action, body) {
 }
 
 export const adminStatus = (password) => post('status', { password })
-export const adminCheck = (password, model = 'deepseek-chat') => post('check', { password, model })
-export const adminSetToken = (password, token) => post('token', { password, token })
+export const adminCheck = (password) => post('check', { password })
 export const adminClear = (password) => post('clear', { password })
 
 // GET / — открытая проверка: жив ли сервер и сколько он отвечает

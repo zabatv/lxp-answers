@@ -45,13 +45,15 @@ src/
     highlight.js              подсветка синтаксиса (highlight.js)
     files.js                  скачивание файла / всех файлов задания (.zip)
     preview.js                сборка HTML для запуска: подстановка style.css, защита ссылок
-    deepseek.js               клиент прокси LXP AI (правка кода и чат)
+    ai.js                     клиент прокси LXP AI на Gemini (чат, правка кода)
+    admin.js                  запросы админки
   components/
     Sidebar.jsx               логотип, поиск, дерево дисциплин, прогресс
     LessonView.jsx            страница задания: условие, пометка, файлы, «Назад/Далее»
     SoonView.jsx              заглушка «в разработке»
     CodeBlock.jsx             блок кода: подсветка, копирование, скачивание, запуск, LXP AI
     ChatView.jsx              вкладка «Чат с LXP AI» (#/chat)
+    AdminView.jsx             админка (#/admin)
     LoginGate.jsx             вход по логину и паролю
     HtmlPreview.jsx           «окно браузера» с запущенным HTML (компьютер / телефон)
     reactbits/                компоненты ReactBits

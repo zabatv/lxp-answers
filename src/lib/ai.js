@@ -1,25 +1,15 @@
-// Клиент к прокси LXP AI (внутри — DeepSeek через opendeep, как в collablab: запрос идёт на сервер с opendeep,
-// токен chat.deepseek.com хранится на сервере, не в браузере).
+// Клиент к прокси LXP AI. Внутри — Gemini (Google AI Studio): ключ хранится на сервере, не в браузере.
 // Адрес прокси задаётся при сборке: Render → сайт → Environment → VITE_DEEPSEEK_PROXY
+// (имя переменной осталось от прежней версии, чтобы не перенастраивать Render).
 
-const MODEL_STORAGE = 'deepseek_model'
-export const DEFAULT_MODEL = 'deepseek-chat' // также: deepseek-reasoner, deepseek-v4-pro
-
-const PROXY =
-  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_DEEPSEEK_PROXY) || ''
-
+const env = (typeof import.meta !== 'undefined' && import.meta.env) || {}
+const PROXY = env.VITE_AI_PROXY || env.VITE_DEEPSEEK_PROXY || ''
 const NO_PROXY = 'LXP AI не подключён: не задан адрес прокси (переменная VITE_DEEPSEEK_PROXY)'
 
 export const proxyBase = () => PROXY.replace(/\/$/, '')
 
 export function hasProxy() {
   return Boolean(PROXY)
-}
-export function getModel() {
-  try { return localStorage.getItem(MODEL_STORAGE) || DEFAULT_MODEL } catch { return DEFAULT_MODEL }
-}
-export function setModel(m) {
-  try { localStorage.setItem(MODEL_STORAGE, m) } catch { /* приватный режим */ }
 }
 
 // Контекст задания (условие с платформы, пометки, уникальные данные) дописывается к просьбе,
@@ -33,34 +23,6 @@ function withContext(instruction, context) {
   )
 }
 
-// Отправляет код + инструкцию на прокси, получает переписанный код.
-export async function refineCode({ code, lang, instruction, model, context }) {
-  if (!PROXY) {
-    throw new Error(NO_PROXY)
-  }
-  const res = await fetch(PROXY.replace(/\/$/, '') + '/api/refine', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      code,
-      lang,
-      instruction: withContext(instruction, context),
-      model: model || getModel(),
-    }),
-  })
-
-  if (!res.ok) {
-    let detail = ''
-    try { detail = await res.text() } catch { /* ignore */ }
-    throw new Error('Прокси ' + res.status + (detail ? ': ' + detail.slice(0, 200) : ''))
-  }
-
-  const data = await res.json()
-  let out = (data && data.text) || ''
-  out = out.replace(/^```[^\n]*\n?/, '').replace(/\n?```\s*$/, '').trim()
-  return out
-}
-
 // Бесплатный сервер на Render засыпает без запросов и просыпается около минуты.
 // Пока он спит, запрос падает (нет связи) или Render отдаёт 502/503/504 своей HTML-страницей.
 export const CHAT_ATTEMPTS = 10
@@ -71,32 +33,34 @@ class Asleep extends Error {}
 const sleep = (ms, signal) =>
   new Promise((resolve, reject) => {
     const t = setTimeout(resolve, ms)
-    signal?.addEventListener('abort', () => {
-      clearTimeout(t)
-      reject(new DOMException('Отменено', 'AbortError'))
-    }, { once: true })
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(t)
+        reject(new DOMException('Отменено', 'AbortError'))
+      },
+      { once: true }
+    )
   })
 
 // будим сервер заранее — например, когда открыли вкладку чата
-// заодно узнаём, какие запасные модели подключены на прокси: [{id, name}]
 export async function wakeProxy() {
-  if (!PROXY) return []
+  if (!PROXY) return null
   try {
-    const res = await fetch(PROXY.replace(/\/$/, '') + '/', { mode: 'cors' })
-    const data = await res.json()
-    return Array.isArray(data.providers) ? data.providers : []
+    const res = await fetch(proxyBase() + '/', { mode: 'cors' })
+    return await res.json()
   } catch {
-    return []
+    return null
   }
 }
 
-async function chatOnce({ messages, model, signal, web }) {
+async function postOnce(path, payload, signal) {
   let res
   try {
-    res = await fetch(PROXY.replace(/\/$/, '') + '/api/chat', {
+    res = await fetch(proxyBase() + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, model: model || getModel(), web: Boolean(web) }),
+      body: JSON.stringify(payload),
       signal,
     })
   } catch (err) {
@@ -110,22 +74,19 @@ async function chatOnce({ messages, model, signal, web }) {
     let own = null
     try { own = JSON.parse(detail).error } catch { /* не JSON */ }
     if (!own && [502, 503, 504].includes(res.status)) throw new Asleep('сервер просыпается')
-    throw new Error('LXP AI: ошибка ' + res.status + (own || detail ? ' — ' + String(own || detail).slice(0, 200) : ''))
+    throw new Error(own || `LXP AI: ошибка ${res.status}`)
   }
   const data = await res.json()
-  // via — кто ответил: DeepSeek или запасной провайдер (Gemini, Groq…)
   return { text: ((data && data.text) || '').trim(), via: (data && data.via) || '' }
 }
 
-// Чат: вся история уходит на прокси, ответ — { text (markdown), via }.
-// onRetry(attempt) вызывается перед каждой повторной попыткой (2…CHAT_ATTEMPTS).
-// web — разрешить поиск Google (работает через Gemini с инструментами)
-export async function chat({ messages, model, signal, onRetry, web }) {
+// Повторяет запрос раз в минуту, пока Render будит сервер. onRetry(attempt) — перед попыткой 2…CHAT_ATTEMPTS.
+async function postWithRetry(path, payload, { signal, onRetry } = {}) {
   if (!PROXY) throw new Error(NO_PROXY)
   for (let attempt = 1; ; attempt++) {
     const started = Date.now()
     try {
-      return await chatOnce({ messages, model, signal, web })
+      return await postOnce(path, payload, signal)
     } catch (err) {
       if (!(err instanceof Asleep)) throw err
       if (attempt >= CHAT_ATTEMPTS) {
@@ -135,4 +96,16 @@ export async function chat({ messages, model, signal, onRetry, web }) {
       await sleep(Math.max(0, RETRY_EVERY - (Date.now() - started)), signal)
     }
   }
+}
+
+// Чат. model: 'tools' — с инструментами (ответы сайта, проверка кодом), 'fast' — просто ответ.
+// web — разрешить поиск Google. Возвращает { text (markdown), via }.
+export function chat({ messages, model = 'tools', web = false, signal, onRetry }) {
+  return postWithRetry('/api/chat', { messages, model, web: Boolean(web) }, { signal, onRetry })
+}
+
+// Отправляет код + инструкцию на прокси, получает переписанный код.
+export async function refineCode({ code, lang, instruction, context }) {
+  const { text } = await postWithRetry('/api/refine', { code, lang, instruction: withContext(instruction, context) })
+  return text.replace(/^```[^\n]*\n?/, '').replace(/\n?```\s*$/, '').trim()
 }
