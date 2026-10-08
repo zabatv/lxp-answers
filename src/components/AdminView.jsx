@@ -187,10 +187,10 @@ function ProxyPanel({ password, onLock }) {
     return () => clearInterval(t)
   }, [auto, load])
 
-  const runCheck = async () => {
-    setCheck({ state: 'running', text: 'Проверяю токен и спрашиваю модель…' })
+  const runCheck = async (model = 'deepseek-chat', name = 'DeepSeek') => {
+    setCheck({ state: 'running', text: `${name}: проверяю и задаю тестовый вопрос…` })
     try {
-      const r = await adminCheck(password)
+      const r = await adminCheck(password, model)
       setCheck(
         r.ok
           ? { state: 'done', text: `${r.detail}. Ответ за ${(r.ms / 1000).toFixed(1)} с: «${r.answer}»` }
@@ -287,10 +287,36 @@ function ProxyPanel({ password, onLock }) {
             ))}
           </div>
         )}
+        {status?.providers && (
+          <div className="admin-providers">
+            <span className="admin-tile-label">
+              Запасные модели {status.fallback ? '— подменяют DeepSeek, если он не ответил' : '(подмена выключена)'}
+            </span>
+            {status.providers.map((p) => (
+              <div key={p.id} className="admin-provider" data-on={p.on ? '' : undefined}>
+                <span className="admin-dot" data-ok={p.on ? '' : undefined} />
+                <strong>{p.name}</strong>
+                <span className="admin-provider-model">{p.model}</span>
+                {p.on ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={check?.state === 'running'}
+                    onClick={() => runCheck(p.id, p.name)}
+                  >
+                    Проверить
+                  </button>
+                ) : (
+                  <span className="admin-provider-off">нет ключа {p.id.toUpperCase()}_API_KEY</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="admin-row admin-row--check">
-          <button type="button" className="btn btn-primary" onClick={runCheck} disabled={check?.state === 'running'}>
+          <button type="button" className="btn btn-primary" onClick={() => runCheck()} disabled={check?.state === 'running'}>
             <Icon icon={FlashIcon} size={15} />
-            Проверить LXP AI
+            Проверить DeepSeek
           </button>
           {check && <StatusMark status={check.state} label={check.text} color="var(--muted)" doneColor="#45e6b0" errorColor="#ff6b81" size={16} fontSize={13.5} />}
         </div>

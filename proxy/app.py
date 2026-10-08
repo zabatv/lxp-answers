@@ -76,18 +76,95 @@ def chat_prompt(messages):
     return "\n".join(lines)
 
 
-def chat(messages, model):
-    model = model if model in VALID_MODELS else "deepseek-chat"
+# ---------- запасные провайдеры (OpenAI-совместимый API) ----------
+# Ключи задаются только в настройках сервиса. Провайдер без ключа просто не используется.
+PROVIDERS = {
+    "gemini": {
+        "name": "Gemini",
+        "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "key": os.environ.get("GEMINI_API_KEY", "").strip(),
+        "model": os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip(),
+    },
+    "groq": {
+        "name": "Groq",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "key": os.environ.get("GROQ_API_KEY", "").strip(),
+        "model": os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile").strip(),
+    },
+    "openrouter": {
+        "name": "OpenRouter",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "key": os.environ.get("OPENROUTER_API_KEY", "").strip(),
+        "model": os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free").strip(),
+    },
+}
+# если DeepSeek не ответил — пробуем по очереди настроенных провайдеров
+FALLBACK = os.environ.get("AI_FALLBACK", "1").strip() != "0"
+
+
+def active_providers():
+    return [k for k, p in PROVIDERS.items() if p["key"]]
+
+
+def provider_chat(pid, system, turns, temperature=0.4):
+    p = PROVIDERS[pid]
+    msgs = [{"role": "system", "content": system}] + [
+        {"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content", ""))}
+        for m in turns
+    ]
+    req = urllib.request.Request(
+        p["url"],
+        data=json.dumps({"model": p["model"], "messages": msgs, "temperature": temperature}).encode(),
+        method="POST",
+        headers={"Authorization": f"Bearer {p['key']}", "Content-Type": "application/json",
+                 "HTTP-Referer": "https://lxp-answers.onrender.com", "X-Title": "LXP AI"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"{p['name']}: HTTP {exc.code} {exc.read().decode('utf-8', 'ignore')[:200]}") from None
+    return (data["choices"][0]["message"].get("content") or "").strip()
+
+
+def with_fallback(model, deepseek_call, provider_call):
+    """Возвращает (текст, кто ответил). Модель-провайдер — сразу к нему; DeepSeek — с запасным вариантом."""
+    if model in PROVIDERS:
+        if not PROVIDERS[model]["key"]:
+            raise RuntimeError(f"{PROVIDERS[model]['name']} не подключён (нет ключа в настройках прокси)")
+        return provider_call(model), PROVIDERS[model]["name"]
+    try:
+        return deepseek_call(model if model in VALID_MODELS else "deepseek-chat"), "DeepSeek"
+    except Exception as exc:  # noqa: BLE001
+        first = exc
+    if FALLBACK:
+        for pid in active_providers():
+            try:
+                return provider_call(pid), PROVIDERS[pid]["name"]
+            except Exception as exc:  # noqa: BLE001
+                record("fallback", False, model=pid, detail=str(exc))
+    raise first
+
+
+def _ds_chat(messages, model):
     gm = _od.GenerativeModel(model)
     resp = gm.generate_content(chat_prompt(messages), thinking_enabled=(model == "deepseek-reasoner"))
     return (resp.text or "").strip()
 
 
+def chat(messages, model):
+    turns = [m for m in messages[-20:] if isinstance(m, dict)]
+    return with_fallback(model, lambda ds: _ds_chat(messages, ds), lambda pid: provider_chat(pid, CHAT_SYSTEM, turns))
+
+
 def generate(code, lang, instruction, model):
-    model = model if model in VALID_MODELS else "deepseek-chat"
-    gm = _od.GenerativeModel(model)
-    resp = gm.generate_content(build_prompt(code, lang, instruction), thinking_enabled=False)
-    return (resp.text or "").strip()
+    def ds(m):
+        gm = _od.GenerativeModel(m)
+        resp = gm.generate_content(build_prompt(code, lang, instruction), thinking_enabled=False)
+        return (resp.text or "").strip()
+
+    user = f"Язык: {lang}.\n\nВот код:\n{code}\n\nЗадача: {instruction}"
+    return with_fallback(model, ds, lambda pid: provider_chat(pid, SYSTEM, [{"role": "user", "content": user}], 0.2))
 
 
 def deepseek_status():
@@ -233,6 +310,8 @@ def admin_status():
         "startedAt": datetime.fromtimestamp(STARTED, timezone.utc).isoformat(timespec="seconds"),
         "token": {"set": bool(TOKEN), "length": len(TOKEN), "hash": token_hash(TOKEN)},
         "persist": bool(RENDER_API_KEY and RENDER_SERVICE_ID),
+        "providers": [{"id": k, "name": p["name"], "model": p["model"], "on": bool(p["key"])} for k, p in PROVIDERS.items()],
+        "fallback": FALLBACK,
         "origin": ALLOW_ORIGIN,
         "stats": {**stats, "avgChatMs": stats["chatMs"] // stats["chatOk"] if stats["chatOk"] else 0},
         "events": events,
@@ -243,6 +322,8 @@ def explain(exc):
     # chat.deepseek.com при ошибке отвечает data: null — opendeep падает на .get()
     if isinstance(exc, AttributeError) and "NoneType" in str(exc):
         return f"DeepSeek отказал ({deepseek_status()}). Токен: {len(TOKEN)} симв."
+    if isinstance(exc, RuntimeError):  # наши понятные ошибки (провайдеры, нет ключа)
+        return str(exc)
     return f"opendeep: {exc}"
 
 
@@ -268,7 +349,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self._json(200, {"ok": True, "tokenSet": bool(TOKEN), "tokenLength": len(TOKEN),
-                         "tokenHash": hashlib.sha256(TOKEN.encode()).hexdigest()[:12]})
+                         "tokenHash": hashlib.sha256(TOKEN.encode()).hexdigest()[:12],
+                         "providers": [{"id": k, "name": PROVIDERS[k]["name"]} for k in active_providers()]})
 
     def do_POST(self):
         path = self.path.rstrip("/")
@@ -294,14 +376,14 @@ class Handler(BaseHTTPRequestHandler):
             model = str(body.get("model", "deepseek-chat"))
             t0 = time.time()
             try:
-                text = chat(messages, model)
+                text, via = chat(messages, model)
             except Exception as exc:  # noqa: BLE001
                 err = explain(exc)
                 record("chat", False, int((time.time() - t0) * 1000), model, err)
                 self._json(502, {"error": err})
                 return
-            record("chat", True, int((time.time() - t0) * 1000), model)
-            self._json(200, {"text": text})
+            record("chat", True, int((time.time() - t0) * 1000), model, "" if via == "DeepSeek" else f"ответил {via}")
+            self._json(200, {"text": text, "via": via})
             return
 
         instruction = str(body.get("instruction", "")).strip()
@@ -315,14 +397,14 @@ class Handler(BaseHTTPRequestHandler):
 
         t0 = time.time()
         try:
-            text = generate(code, lang, instruction, model)
+            text, via = generate(code, lang, instruction, model)
         except Exception as exc:  # noqa: BLE001
             err = explain(exc)
             record("refine", False, int((time.time() - t0) * 1000), model, err)
             self._json(502, {"error": err})
             return
-        record("refine", True, int((time.time() - t0) * 1000), model)
-        self._json(200, {"text": text})
+        record("refine", True, int((time.time() - t0) * 1000), model, "" if via == "DeepSeek" else f"ответил {via}")
+        self._json(200, {"text": text, "via": via})
 
     def _ip(self):
         fwd = self.headers.get("X-Forwarded-For", "")
@@ -340,17 +422,25 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, admin_status())
         elif action == "check":
             # проверка «вживую»: токен у DeepSeek + короткий ответ модели
-            ok, why = probe_token(TOKEN) if TOKEN else (False, "токен не задан")
+            target = str(body.get("model", "deepseek-chat"))
+            question = [{"role": "user", "content": "Ответь одним коротким предложением: ты на связи?"}]
+            if target in PROVIDERS:
+                ok, why = (True, f"{PROVIDERS[target]['name']} подключён") if PROVIDERS[target]["key"] \
+                    else (False, f"{PROVIDERS[target]['name']}: нет ключа")
+            else:
+                ok, why = probe_token(TOKEN) if TOKEN else (False, "токен DeepSeek не задан")
             answer, ms = "", 0
             if ok:
                 t0 = time.time()
                 try:
-                    answer = chat([{"role": "user", "content": "Ответь одним коротким предложением: ты на связи?"}],
-                                  "deepseek-chat")
+                    if target in PROVIDERS:
+                        answer = provider_chat(target, CHAT_SYSTEM, question)
+                    else:
+                        answer = _ds_chat(question, "deepseek-chat")
                 except Exception as exc:  # noqa: BLE001
                     ok, why = False, explain(exc)
                 ms = int((time.time() - t0) * 1000)
-            record("check", ok, ms, "deepseek-chat", "" if ok else why)
+            record("check", ok, ms, target, "" if ok else why)
             self._json(200, {"ok": ok, "detail": why, "answer": answer, "ms": ms})
         elif action == "token":
             token = clean_token(str(body.get("token", "")))

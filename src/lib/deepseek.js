@@ -78,8 +78,16 @@ const sleep = (ms, signal) =>
   })
 
 // будим сервер заранее — например, когда открыли вкладку чата
-export function wakeProxy() {
-  if (PROXY) fetch(PROXY.replace(/\/$/, '') + '/', { mode: 'cors' }).catch(() => {})
+// заодно узнаём, какие запасные модели подключены на прокси: [{id, name}]
+export async function wakeProxy() {
+  if (!PROXY) return []
+  try {
+    const res = await fetch(PROXY.replace(/\/$/, '') + '/', { mode: 'cors' })
+    const data = await res.json()
+    return Array.isArray(data.providers) ? data.providers : []
+  } catch {
+    return []
+  }
 }
 
 async function chatOnce({ messages, model, signal }) {
@@ -105,10 +113,11 @@ async function chatOnce({ messages, model, signal }) {
     throw new Error('LXP AI: ошибка ' + res.status + (own || detail ? ' — ' + String(own || detail).slice(0, 200) : ''))
   }
   const data = await res.json()
-  return ((data && data.text) || '').trim()
+  // via — кто ответил: DeepSeek или запасной провайдер (Gemini, Groq…)
+  return { text: ((data && data.text) || '').trim(), via: (data && data.via) || '' }
 }
 
-// Чат: вся история уходит на прокси, ответ — обычный текст (markdown).
+// Чат: вся история уходит на прокси, ответ — { text (markdown), via }.
 // onRetry(attempt) вызывается перед каждой повторной попыткой (2…CHAT_ATTEMPTS).
 export async function chat({ messages, model, signal, onRetry }) {
   if (!PROXY) throw new Error(NO_PROXY)

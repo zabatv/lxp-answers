@@ -10,6 +10,16 @@ proof-of-work). Токен хранится в переменной окруже
 - `POST /api/chat` — тело `{messages:[{role,content}], model}` → ответ `{text}`
 - `POST /api/admin/{status|check|token|clear}` — админка сайта (`#/admin`), тело `{password, …}`
 
+## Запасные модели (бесплатные, без карты)
+Задай ключ хотя бы одного провайдера — он появится в выборе модели в чате и будет
+отвечать вместо DeepSeek, если тот откажет (токен устарел и т. п.). `AI_FALLBACK=0` выключает подмену.
+
+| Переменная | Где взять ключ | Модель по умолчанию (`*_MODEL` — заменить) |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | aistudio.google.com → Get API key | `gemini-2.5-flash` |
+| `GROQ_API_KEY` | console.groq.com → API Keys | `llama-3.3-70b-versatile` |
+| `OPENROUTER_API_KEY` | openrouter.ai → Keys | `meta-llama/llama-3.3-70b-instruct:free` |
+
 ## Админка
 - `ADMIN_PASSWORD` — пароль админки. Без этой переменной админка выключена. В коде пароля нет.
 - `RENDER_API_KEY` — необязательно. Если задан, новый токен из админки записывается в

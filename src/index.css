@@ -2615,3 +2615,34 @@ button {
   color: var(--text-2);
   font-size: 12.5px;
 }
+.admin-providers {
+  display: grid;
+  gap: 6px;
+}
+.admin-provider {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+.admin-provider:not([data-on]) {
+  opacity: 0.6;
+}
+.admin-provider .admin-dot {
+  margin-right: 0;
+}
+.admin-provider-model {
+  flex: 1;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.admin-provider-off {
+  color: var(--text-3);
+  font-size: 12px;
+}

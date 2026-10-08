@@ -15,6 +15,8 @@ const MODELS = [
   { key: 'deepseek-chat', name: 'LXP AI', tag: 'Быстрая' },
   { key: 'deepseek-reasoner', name: 'LXP AI Думающая', tag: 'Точнее' },
 ]
+// запасные модели появляются, если на прокси задан ключ провайдера
+const PROVIDER_TAGS = { gemini: 'Google', groq: 'Быстрая', openrouter: 'Открытая' }
 
 // команды раскрываются в просьбу для LXP AI; в чате видно то, что набрал пользователь
 const COMMANDS = [
@@ -60,6 +62,7 @@ const STATUS_LABEL = {
 export default function ChatView() {
   const [messages, setMessages] = useState(loadHistory)
   const [busy, setBusy] = useState(false)
+  const [extraModels, setExtraModels] = useState([])
   const files = useRef(new Map()) // имя прикреплённого файла → его текст
   const abortRef = useRef(null)
   const fileInput = useRef(null)
@@ -88,8 +91,15 @@ export default function ChatView() {
 
   // сервер на Render мог уснуть — будим его сразу, пока пользователь пишет вопрос
   useEffect(() => {
-    wakeProxy()
+    let alive = true
+    wakeProxy().then((list) => {
+      if (alive) setExtraModels(list.map((p) => ({ key: p.id, name: p.name, tag: PROVIDER_TAGS[p.id] || 'Запасная' })))
+    })
+    return () => {
+      alive = false
+    }
   }, [])
+  const models = useMemo(() => [...MODELS, ...extraModels], [extraModels])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -165,13 +175,13 @@ export default function ChatView() {
     const finish = (patch) =>
       setMessages((m) => m.map((x, i) => (i === m.length - 1 && x.status === 'running' ? { ...x, ...patch } : x)))
     try {
-      const text = await chat({
+      const { text, via } = await chat({
         messages: history.filter((x) => x.status !== 'failed').map((x) => ({ role: x.role, content: x.api || x.content })),
         model,
         signal: ctrl.signal,
         onRetry: (attempt) => finish({ attempt }),
       })
-      finish({ content: text || 'Пустой ответ — попробуй переформулировать вопрос.', status: 'done', fresh: true })
+      finish({ content: text || 'Пустой ответ — попробуй переформулировать вопрос.', status: 'done', fresh: true, via })
     } catch (err) {
       if (ctrl.signal.aborted) finish({ status: 'cancelled' })
       else finish({ content: err.message || String(err), status: 'failed' })
@@ -263,7 +273,9 @@ export default function ChatView() {
                   label={
                     m.status === 'running' && m.attempt > 1
                       ? `Сервер просыпается… попытка ${m.attempt} из ${CHAT_ATTEMPTS}`
-                      : STATUS_LABEL[m.status]
+                      : m.status === 'done' && m.via && m.via !== 'DeepSeek'
+                        ? `Ответ готов · ${m.via}`
+                        : STATUS_LABEL[m.status]
                   }
                   color="var(--muted)"
                   doneColor="#45e6b0"
@@ -294,7 +306,7 @@ export default function ChatView() {
           placeholder="Спроси LXP AI…  / — команды, @ — источники"
           sources={sources}
           commands={COMMANDS}
-          models={MODELS}
+          models={models}
           defaultModel={MODELS[0].key}
           efforts={[]}
           busy={busy}
