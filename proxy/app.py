@@ -40,15 +40,20 @@ PROVIDERS = {
 # Модели, из которых пользователь выбирает под задачу. Модель без ключа провайдера скрыта.
 MODELS = [
     {"id": "groq", "provider": "groq", "model": os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile").strip(),
-     "name": "Llama 3.3 70B", "tag": "Groq · большой лимит"},
+     "name": "Llama 3.3 70B", "tag": "Groq · большой лимит",
+     "prefer": [r"llama.*70b", r"gpt-oss-120b", r"llama-4.*maverick", r"llama-4", r"70b|120b"]},
     {"id": "groq-fast", "provider": "groq", "model": os.environ.get("GROQ_FAST_MODEL", "llama-3.1-8b-instant").strip(),
-     "name": "Llama 3.1 8B", "tag": "Groq · мгновенная"},
+     "name": "Llama 3.1 8B", "tag": "Groq · мгновенная",
+     "prefer": [r"llama.*8b", r"gpt-oss-20b", r"llama-4.*scout", r"(8b|20b)"]},
     {"id": "mistral", "provider": "mistral", "model": os.environ.get("MISTRAL_MODEL", "mistral-small-latest").strip(),
-     "name": "Mistral Small", "tag": "Mistral · по-русски"},
+     "name": "Mistral Small", "tag": "Mistral · по-русски",
+     "prefer": [r"mistral-small", r"mistral-medium"]},
     {"id": "codestral", "provider": "mistral", "model": os.environ.get("CODESTRAL_MODEL", "codestral-latest").strip(),
-     "name": "Codestral", "tag": "Mistral · для кода"},
+     "name": "Codestral", "tag": "Mistral · для кода",
+     "prefer": [r"codestral", r"devstral"]},
     {"id": "groq-qwen", "provider": "groq", "model": os.environ.get("GROQ_CODE_MODEL", "qwen/qwen3-32b").strip(),
-     "name": "Qwen3 32B", "tag": "Groq · для кода"},
+     "name": "Qwen3 32B", "tag": "Groq · для кода",
+     "prefer": [r"qwen.*coder", r"qwen", r"kimi", r"deepseek"]},
     {"id": "gemini", "provider": "gemini", "model": GEMINI_MODEL,
      "name": "Gemini Flash", "tag": "Google · считает кодом"},
 ]
@@ -433,9 +438,70 @@ def openai_tools(p, messages):
 
 
 # ---------- выбор модели ----------
+# Список моделей у провайдера меняется (старые снимают) — спрашиваем его и, если заданной модели
+# больше нет, берём ближайшую по типу из «prefer». Кэш: час, при ошибке — 5 минут.
+_PROVIDER_MODELS = {}
+NON_CHAT = re.compile(r"whisper|tts|guard|embed|playai|orpheus|moderation|ocr|audio|transcri", re.I)
+
+
+def provider_models(pid):
+    prov = PROVIDERS.get(pid) or {}
+    if not prov.get("key") or not prov.get("url"):
+        return []
+    t, ids = _PROVIDER_MODELS.get(pid, (0, None))
+    if ids is not None and time.time() - t < (3600 if ids else 300):
+        return ids
+    ids = []
+    try:
+        req = urllib.request.Request(prov["url"].replace("/chat/completions", "/models"),
+                                     headers={"Authorization": f"Bearer {prov['key']}", "User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read().decode("utf-8")).get("data") or []
+        ids = sorted(x["id"] for x in data if x.get("id") and x.get("active", True) and not NON_CHAT.search(x["id"]))
+    except Exception as exc:  # noqa: BLE001
+        print("models list error:", pid, exc)
+    _PROVIDER_MODELS[pid] = (time.time(), ids)
+    return ids
+
+
+def resolve_model(m):
+    ids = provider_models(m["provider"])
+    if not ids or m["model"] in ids:
+        return m["model"]
+    for pat in m.get("prefer", []):
+        hit = [i for i in ids if re.search(pat, i, re.I)]
+        if hit:
+            return sorted(hit, key=len)[0]
+    return m["model"]
+
+
+def pretty_name(model_id):
+    """«llama-3.3-70b-versatile» → «Llama 3.3 70B», «openai/gpt-oss-120b» → «GPT-OSS 120B»."""
+    words = model_id.split("/")[-1].replace("_", "-").split("-")
+    out = []
+    for w in words:
+        lw = w.lower()
+        if lw in ("versatile", "instant", "preview", "latest", "instruct", "it", "chat"):
+            continue
+        if re.fullmatch(r"\d+(\.\d+)?[bm]", lw):
+            out.append(lw.upper())
+        elif lw in ("gpt", "oss"):
+            out.append(lw.upper())
+        else:
+            out.append(w[:1].upper() + w[1:])
+    name = " ".join(out)
+    return name.replace("GPT OSS", "GPT-OSS") or model_id
+
+
 def models_info():
-    return [{"id": m["id"], "name": m["name"], "tag": m["tag"], "model": m["model"], "provider": PROVIDERS[m["provider"]]["name"],
-             "on": bool(PROVIDERS[m["provider"]]["key"])} for m in MODELS]
+    info = []
+    for m in MODELS:
+        on = bool(PROVIDERS[m["provider"]]["key"])
+        model = resolve_model(m) if on and m["provider"] != "gemini" else m["model"]
+        name = m["name"] if model == m["model"] else pretty_name(model)
+        info.append({"id": m["id"], "name": name, "tag": m["tag"], "model": model,
+                     "provider": PROVIDERS[m["provider"]]["name"], "on": on})
+    return info
 
 
 def pick_model(model_id):
@@ -450,7 +516,9 @@ def pick_model(model_id):
 
 
 def openai_target(m):
-    return {**PROVIDERS[m["provider"]], "model": m["model"], "name": m["name"], "id": m["id"]}
+    model = resolve_model(m)
+    name = m["name"] if model == m["model"] else pretty_name(model)
+    return {**PROVIDERS[m["provider"]], "model": model, "name": name, "id": m["id"]}
 
 
 def chat(messages, model_id, web=False):
@@ -458,7 +526,8 @@ def chat(messages, model_id, web=False):
     m = pick_model("gemini" if web else model_id)
     if m["provider"] == "gemini":
         return gemini_tools(messages, web=web), m["name"]
-    return openai_tools(openai_target(m), messages), m["name"]
+    t = openai_target(m)
+    return openai_tools(t, messages), t["name"]
 
 
 def refine(code, lang, instruction, model_id):
@@ -466,7 +535,8 @@ def refine(code, lang, instruction, model_id):
     msgs = [{"role": "user", "content": f"Язык: {lang}.\n\nВот код:\n{code}\n\nЗадача: {instruction}"}]
     if m["provider"] == "gemini":
         return gemini_plain(REFINE_SYSTEM, msgs, temperature=0.2), m["name"]
-    return strip_think(openai_plain(openai_target(m), REFINE_SYSTEM, msgs, temperature=0.2)), m["name"]
+    t = openai_target(m)
+    return strip_think(openai_plain(t, REFINE_SYSTEM, msgs, temperature=0.2)), t["name"]
 
 
 def check_model(model_id):
