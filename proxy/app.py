@@ -53,6 +53,9 @@ MODELS = [
      "name": "Gemini Flash", "tag": "Google · считает кодом"},
 ]
 ALLOW_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*").strip() or "*"
+# Cloudflare перед Groq (и др.) режет стандартный «Python-urllib/3.x» как бота (ошибка 1010) —
+# представляемся обычным клиентом
+USER_AGENT = os.environ.get("HTTP_USER_AGENT", "Mozilla/5.0 (compatible; LXP-AI-proxy/1.0; +https://lxp-answers.onrender.com)")
 SITE_URL = os.environ.get("SITE_URL", "https://lxp-answers.onrender.com").strip().rstrip("/")
 # пароль админки задаётся только в настройках сервиса; без него админка выключена
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
@@ -124,7 +127,7 @@ def gemini_call(body, model=None):
         GEMINI_URL.format(model=model or GEMINI_MODEL),
         data=json.dumps(body).encode(),
         method="POST",
-        headers={"x-goog-api-key": GEMINI_KEY, "Content-Type": "application/json"},
+        headers={"x-goog-api-key": GEMINI_KEY, "Content-Type": "application/json", "User-Agent": USER_AGENT},
     )
     try:
         with urllib.request.urlopen(req, timeout=150) as r:
@@ -179,7 +182,8 @@ _ANSWERS = {"t": 0, "data": None}
 def site_answers():
     """answers.json со сайта (выгружается при сборке), кэш 10 минут."""
     if _ANSWERS["data"] is None or time.time() - _ANSWERS["t"] > 600:
-        with urllib.request.urlopen(SITE_URL + "/answers.json", timeout=20) as r:
+        req = urllib.request.Request(SITE_URL + "/answers.json", headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=20) as r:
             _ANSWERS["data"] = json.loads(r.read().decode("utf-8"))
             _ANSWERS["t"] = time.time()
     return _ANSWERS["data"]
@@ -336,7 +340,8 @@ def openai_call(p, messages, tools=None, temperature=0.4):
         p["url"],
         data=json.dumps(body).encode(),
         method="POST",
-        headers={"Authorization": f"Bearer {p['key']}", "Content-Type": "application/json", "Accept": "application/json"},
+        headers={"Authorization": f"Bearer {p['key']}", "Content-Type": "application/json", "Accept": "application/json",
+                 "User-Agent": USER_AGENT},
     )
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
