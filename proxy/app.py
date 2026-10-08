@@ -70,9 +70,10 @@ def record(kind, ok, ms=0, model="", detail=""):
 
 # ---------- Gemini ----------
 class GeminiError(RuntimeError):
-    def __init__(self, msg, status=0):
+    def __init__(self, msg, status=0, retry_after=0):
         super().__init__(msg)
         self.status = status
+        self.retry_after = retry_after  # через сколько секунд Google разрешит следующий запрос (при 429)
 
 
 def gemini_call(body, model=None):
@@ -89,12 +90,18 @@ def gemini_call(body, model=None):
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "ignore")
+        retry_after = 0
         try:
-            detail = json.loads(detail)["error"]["message"]
+            err = json.loads(detail)["error"]
+            detail = err["message"]
+            for d in err.get("details", []):
+                m = re.match(r"(\d+(?:\.\d+)?)s", str(d.get("retryDelay", "")))
+                if m:
+                    retry_after = round(float(m.group(1)))
         except Exception:  # noqa: BLE001
             pass
         if exc.code == 429:
-            detail = "лимит бесплатного ключа Gemini исчерпан — попробуй через минуту. " + detail[:160]
+            raise GeminiError("Бесплатный лимит Gemini на эту минуту закончился", 429, retry_after or 60) from None
         raise GeminiError(f"Gemini: HTTP {exc.code} — {detail[:300]}", exc.code) from None
 
 
@@ -220,7 +227,7 @@ def gemini_tools(messages, web=False):
         try:
             data = gemini_call(body)
         except GeminiError as exc:
-            if WEB_TOOL in tools and exc.status in (400, 429):
+            if WEB_TOOL in tools and exc.status == 400:
                 tools = [t for t in tools if t != WEB_TOOL]
                 notes.append("_Поиск Google сейчас недоступен на этом ключе — ответ без него._")
                 continue
@@ -339,6 +346,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _fail(self, exc):
+        # лимит Gemini — отдельный ответ, сайт показывает оповещение с обратным отсчётом
+        if isinstance(exc, GeminiError) and exc.status == 429:
+            self._json(429, {"error": str(exc), "code": "rate_limit", "retryAfter": exc.retry_after})
+        else:
+            self._json(502, {"error": str(exc)})
+
     def _ip(self):
         fwd = self.headers.get("X-Forwarded-For", "")
         return fwd.split(",")[0].strip() if fwd else self.client_address[0]
@@ -383,7 +397,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001
             ms = int((time.time() - t0) * 1000)
             record("chat", False, ms, mode, str(exc))
-            self._json(502, {"error": str(exc)})
+            self._fail(exc)
             return
         record("chat", True, int((time.time() - t0) * 1000), mode + (" + Google" if web else ""))
         self._json(200, {"text": text, "via": "Gemini"})
@@ -398,7 +412,7 @@ class Handler(BaseHTTPRequestHandler):
             text = refine(str(body.get("code", "")), str(body.get("lang", "text")), instruction)
         except Exception as exc:  # noqa: BLE001
             record("refine", False, int((time.time() - t0) * 1000), "refine", str(exc))
-            self._json(502, {"error": str(exc)})
+            self._fail(exc)
             return
         record("refine", True, int((time.time() - t0) * 1000), "refine")
         self._json(200, {"text": text, "via": "Gemini"})

@@ -72,9 +72,19 @@ async function postOnce(path, payload, signal) {
     try { detail = await res.text() } catch { /* ignore */ }
     // ошибка самого прокси приходит JSON-ом {error}; HTML-страница 5xx — это Render, сервер ещё не проснулся
     let own = null
-    try { own = JSON.parse(detail).error } catch { /* не JSON */ }
+    let parsed = null
+    try {
+      parsed = JSON.parse(detail)
+      own = parsed.error
+    } catch { /* не JSON */ }
     if (!own && [502, 503, 504].includes(res.status)) throw new Asleep('сервер просыпается')
-    throw new Error(own || `LXP AI: ошибка ${res.status}`)
+    const err = new Error(own || `LXP AI: ошибка ${res.status}`)
+    // лимит бесплатного ключа Gemini: сколько секунд ждать до следующего запроса
+    if (parsed?.code === 'rate_limit') {
+      err.code = 'rate_limit'
+      err.retryAfter = Number(parsed.retryAfter) || 60
+    }
+    throw err
   }
   const data = await res.json()
   return { text: ((data && data.text) || '').trim(), via: (data && data.via) || '' }

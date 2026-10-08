@@ -6,6 +6,7 @@ import AiIcon from './AiIcon.jsx'
 import ChatMarkdown from './ChatMarkdown.jsx'
 import ChatThinking, { thinkSteps } from './ChatThinking.jsx'
 import Icon from './Icon.jsx'
+import LimitNotice from './LimitNotice.jsx'
 import PromptBar from './reactbits/PromptBar.jsx'
 import StatusMark from './reactbits/StatusMark.jsx'
 
@@ -63,6 +64,7 @@ const STATUS_LABEL = {
 export default function ChatView() {
   const [messages, setMessages] = useState(loadHistory)
   const [busy, setBusy] = useState(false)
+  const [limit, setLimit] = useState(null) // { until, history, model, web } — упёрлись в лимит Gemini
   const files = useRef(new Map()) // имя прикреплённого файла → его текст
   const abortRef = useRef(null)
   const fileInput = useRef(null)
@@ -186,15 +188,28 @@ export default function ChatView() {
       })
     } catch (err) {
       if (ctrl.signal.aborted) finish({ status: 'cancelled' })
-      else finish({ content: err.message || String(err), status: 'failed' })
+      else if (err.code === 'rate_limit') {
+        finish({ content: 'Не успел ответить: закончился бесплатный лимит Gemini на эту минуту.', status: 'failed' })
+        setLimit({ until: Date.now() + err.retryAfter * 1000, history, model, web })
+      } else finish({ content: err.message || String(err), status: 'failed' })
     } finally {
       if (abortRef.current === ctrl) abortRef.current = null
       setBusy(false)
     }
   }
 
+  // повтор после лимита: убираем неудачный ответ и задаём тот же вопрос
+  const retryAfterLimit = () => {
+    if (!limit || busy) return
+    const { history, model, web } = limit
+    setLimit(null)
+    setMessages((m) => (m.length && m[m.length - 1].status === 'failed' ? m.slice(0, -1) : m))
+    ask(history, model, web)
+  }
+
   const onSend = (text, { attachments = [], model }) => {
     if (busy) return
+    setLimit(null)
     const shown = text || 'Посмотри прикреплённые файлы'
     const api = buildContent(shown, attachments)
     const userMsg = { role: 'user', content: shown, files: attachments, ...(api !== shown ? { api } : {}) }
@@ -309,6 +324,7 @@ export default function ChatView() {
       </div>
 
       <div className="chat-input">
+        {limit && <LimitNotice until={limit.until} onRetry={retryAfterLimit} onClose={() => setLimit(null)} />}
         <PromptBar
           placeholder="Спроси LXP AI…  / — команды, @ — источники"
           sources={sources}

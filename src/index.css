@@ -2650,3 +2650,68 @@ button {
 .chat-thinking {
   min-height: 22px;
 }
+
+/* оповещение о лимите Gemini — над полем ввода */
+.chat-input {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.limit-notice {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  overflow: hidden;
+  padding: 12px 44px 12px 14px;
+  border: 1px solid rgba(255, 181, 71, 0.35);
+  border-radius: 14px;
+  background: rgba(40, 30, 12, 0.88);
+  color: var(--warn);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  animation: limit-in 0.35s var(--ease-out) both;
+}
+.limit-notice[data-ready] {
+  border-color: rgba(69, 230, 176, 0.4);
+  background: rgba(10, 36, 30, 0.9);
+  color: var(--accent-2);
+}
+.limit-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 200px;
+  color: var(--text);
+  font-size: 13.5px;
+}
+.limit-text span {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.limit-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+}
+.limit-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--warn);
+  transform-origin: left;
+  animation: limit-bar linear forwards;
+}
+@keyframes limit-bar {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@keyframes limit-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
